@@ -1,4 +1,4 @@
-import { LettersUtils } from '../utils/lettersUtils';
+import { LettersUtils } from './utils/lettersUtils';
 
 export class SheetRange {
   public spreadSheetId: string;

@@ -4,7 +4,7 @@ import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import * as fs from 'fs';
 import * as readline from 'readline';
-import { ConfigurationService } from '../config/configuration.service';
+import { ConfigurationService } from '../../config/configuration.service';
 const CRED_PATH = '../config/credentials.json';
 const DRIVE_TOKEN_PATH = '../config/drive-token.json';
 
@@ -143,7 +143,7 @@ export class FileStorageService {
   private async getNewToken(oAuth2Client: OAuth2Client): Promise<OAuth2Client> {
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
-      scope: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
+      scope: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive'],
     });
     this.logger.log(`Authorize this app by visiting this url: ${authUrl}`);
 

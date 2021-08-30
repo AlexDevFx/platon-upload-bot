@@ -1,5 +1,5 @@
 {
-  "name": "telegram-bot-template",
+  "name": "platon-upload-bot",
   "version": "1.0.0",
   "description": "",
   "author": "A.Lopatin",
@@ -21,10 +21,10 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@nestjs/common": "^7.6.15",
-    "@nestjs/config": "^0.4.2",
-    "@nestjs/core": "^7.6.15",
-    "@nestjs/platform-express": "^7.6.15",
+    "@nestjs/common": "^8.0.6",
+    "@nestjs/config": "^1.0.1",
+    "@nestjs/core": "^8.0.6",
+    "@nestjs/platform-express": "^8.0.6",
     "fs": "0.0.1-security",
     "google-auth-library": "^7.6.2",
     "googleapis": "^84.0.0",
@@ -32,13 +32,13 @@
     "nest-logger": "^7.0.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
-    "rxjs": "^6.6.7",
+    "rxjs": "^7.3.0",
     "telegraf": "^3.38.0"
   },
   "devDependencies": {
-    "@nestjs/cli": "^7.6.0",
-    "@nestjs/schematics": "^7.3.1",
-    "@nestjs/testing": "^7.6.15",
+    "@nestjs/cli": "^8.1.1",
+    "@nestjs/schematics": "^8.0.3",
+    "@nestjs/testing": "^8.0.6",
     "@types/express": "^4.17.11",
     "@types/jest": "25.1.4",
     "@types/node": "^13.13.51",
