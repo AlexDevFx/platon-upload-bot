@@ -1,16 +1,18 @@
-import { Injectable } from "@nestjs/common";
-import { HttpService } from "@nestjs/axios";
+import {Injectable} from "@nestjs/common";
+import {HttpService} from "@nestjs/axios";
 import {BaseScene, Markup, Stage} from "telegraf";
 import {SceneContextMessageUpdate} from "telegraf/typings/stage";
 import * as fs from 'fs';
-import moment = require('moment');
-import { LoggerService } from 'nest-logger';
+import {LoggerService} from 'nest-logger';
 import {FileStorageService, IUploadResult} from "../../../core/sheets/filesStorage/file-storage.service";
 import {SheetsService} from "../../../core/sheets/sheets.service";
 import {ConfigurationService} from "../../../core/config/configuration.service";
-import {UploadedFile, UploadingFilesInfo} from "../../../core/sheets/filesUploading/uploadingFilesInfo";
+import {RequestFile, UploadedFile, UploadingFilesInfo} from "../../../core/sheets/filesUploading/uploadingFilesInfo";
 import {CallbackButton} from "telegraf/typings/markup";
 import {ColumnParam, CompareType, FilterOptions} from "../../../core/sheets/filterOptions";
+import {UploadedEquipmentStore, UploadingType} from "../../../core/sheets/config/uploadedEquipmentStore";
+import moment = require('moment');
+
 const { leave } = Stage;
 
 enum UploadFilesSteps {
@@ -40,7 +42,8 @@ export class UploadFilesSceneBuilder {
         private readonly logger: LoggerService,
         private readonly fileStorageService: FileStorageService,
         private readonly sheetsService: SheetsService,
-        private readonly configurationService: ConfigurationService
+        private readonly configurationService: ConfigurationService,
+        private readonly uploadedEquipmentStore: UploadedEquipmentStore
     ) {}
 
     private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
@@ -122,6 +125,46 @@ export class UploadFilesSceneBuilder {
         return buttons;
     }
     
+    private async requestFilesForEquipment(ctx: SceneContextMessageUpdate): Promise<void>{
+        const equipmentForUploading = await this.uploadedEquipmentStore.GetEquipment();
+        
+        if(!equipmentForUploading) return;
+        const stepState = ctx.scene.state as UploadFilesSceneState;
+        const columnParams: ColumnParam[] = [];
+        const equipmentSheet = this.configurationService.equipmentSheet;
+
+        columnParams.push({
+            column: equipmentSheet.sskNumberColumn,
+            type: CompareType.Equal,
+            value: stepState.uploadingInfo.sskNumber,
+        });
+        const filterOptions: FilterOptions = {
+            params: columnParams,
+            range: equipmentSheet,
+        };
+
+        const rows = await this.sheetsService.getFilteredRows(filterOptions);
+        const equipmentNameIndex = equipmentSheet.getColumnIndex(equipmentSheet.equipmentNameColumn);
+        const sskNumberIndex = equipmentSheet.getColumnIndex(equipmentSheet.sskNumberColumn);
+        const idIndex = equipmentSheet.getColumnIndex(equipmentSheet.idColumn);
+        const addedEquipments = [];
+        stepState.uploadingInfo.requests = [];
+        stepState.uploadingInfo.currentIndex = 0;
+        for(let eq of equipmentForUploading){
+            if(eq.type === UploadingType.Undefined) continue;
+            let message = `<b>${eq.name}</b>\n`;
+            if(eq.type === UploadingType.Ssk){
+                const sskEquipment = rows.filter(e => e.values[equipmentNameIndex] === eq.name && !addedEquipments.some(ae => ae === e.values[idIndex]))[0];
+                if(sskEquipment){
+                    
+                }
+            }
+            for(let exml of eq.examples){
+                stepState.uploadingInfo.requests.push(new RequestFile('',`${message}${exml.description}`));
+            }
+        }
+    }
+    
     public build(): BaseScene<SceneContextMessageUpdate> {
         const scene = new BaseScene(this.SceneName);
 
@@ -184,10 +227,12 @@ export class UploadFilesSceneBuilder {
 
                 let sskNumber = foundRow.values[maintenanceSheet.getColumnIndex(maintenanceSheet.sskNumberColumn)];
                 if(sskNumber && sskNumber.length > 0){
+                    stepState.uploadingInfo.sskNumber = sskNumber;
+                    
                     await ctx.reply(`Вы хотите загрузить фото для Квартального ТО для ССК-<b>${sskNumber}</b>.`+ 
                         + `Дата проведения <b>${foundRow.values[maintenanceSheet.getColumnIndex(maintenanceSheet.maintenanceDateColumn)]}</b>`,
-                        Markup.inlineKeyboard([Markup.callbackButton('Да', 'ConfirmId'),
-                            Markup.callbackButton('Нет', 'RejectId')]).extra({ parse_mode: 'HTML' }));
+                        Markup.inlineKeyboard([Markup.callbackButton('✅Да', 'ConfirmId'),
+                            Markup.callbackButton('❌Нет', 'RejectId')]).extra({ parse_mode: 'HTML' }));
                     return;
                 }
 

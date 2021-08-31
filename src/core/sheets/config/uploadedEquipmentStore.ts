@@ -17,7 +17,7 @@ export enum UploadingType {
 
 export interface IUploadedEquipment {
     name: string;
-    type: string;
+    type: UploadingType;
     examples: IPhotoExample[]
 }
 
@@ -52,15 +52,28 @@ export class UploadedEquipmentStore {
             if(rows){
                 const uploadedEquipment = [];
                 for(let r of rows){
-                    const type = r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentPhotosType)];
+                    const type = r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentPhotosTypeColumn)];
                     
+                    const startPhotoIndex = maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentPhotosStartColumn);
+                    const endPhotoIndex = startPhotoIndex + maintenanceUploadingSheet.equipmentPhotosCount*2;
+                    const examples = [];
+                    for(let i = startPhotoIndex; i < endPhotoIndex; i += 2){
+                        if(r.values[i] && /^https:\/\/drive/g.test(r.values[i])){
+                            examples.push({
+                                url: r.values[i],
+                                description: r.values[i + 1]
+                            });
+                        }
+                    }
                     
                     uploadedEquipment.push({
                         name: r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentNameColumn)],
-                        type: type === 'ССК' ? UploadingType.Ssk: type === 'Все' ? UploadingType.All: UploadingType.Undefined
+                        type: type === 'ССК' ? UploadingType.Ssk: type === 'Все' ? UploadingType.All: UploadingType.Undefined,
+                        examples: examples
                     });
                 }
                 this.equipment = uploadedEquipment;
+                this.updated = moment().utc().toDate();
             }
             
             this.updated = currentTime;

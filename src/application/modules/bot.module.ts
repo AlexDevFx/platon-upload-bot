@@ -5,6 +5,9 @@ import { LoggerService } from 'nest-logger';
 import { LoggerModule } from './logger.module';
 import { ConfigurationService } from '../../core/config/configuration.service';
 import {UploadFilesSceneBuilder} from "./bot-scenes/upload-files-scene-builder.service";
+import {UploadedEquipmentStore} from "../../core/sheets/config/uploadedEquipmentStore";
+import {SheetsService} from "../../core/sheets/sheets.service";
+import {FileStorageService} from "../../core/sheets/filesStorage/file-storage.service";
 
 @Module({
   imports: [
@@ -13,7 +16,7 @@ import {UploadFilesSceneBuilder} from "./bot-scenes/upload-files-scene-builder.s
     }),
     LoggerModule,
   ],
-  providers: [UploadFilesSceneBuilder, ConfigurationService],
+  providers: [UploadFilesSceneBuilder, ConfigurationService, UploadedEquipmentStore, SheetsService, FileStorageService],
 })
 export class BotModule {
   constructor(

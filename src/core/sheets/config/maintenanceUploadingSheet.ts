@@ -9,7 +9,8 @@ interface IMaintenanceUploadingSheet {
   photoStartColumn: string;
   photoEndColumn: string;
   equipmentRequestedNameColumn: string;
-  equipmentPhotosType: string;
+  equipmentPhotosTypeColumn: string;
+  equipmentPhotosStartColumn: string;
   equipmentPhotosCount: number;
 
   spreadSheetId: string;
@@ -29,7 +30,8 @@ export class MaintenanceUploadingSheet extends SheetRange implements IMaintenanc
   photoStartColumn: string;
   photoEndColumn: string;
   equipmentRequestedNameColumn: string;
-  equipmentPhotosType: string;
+  equipmentPhotosTypeColumn: string;
+  equipmentPhotosStartColumn: string;
   equipmentPhotosCount: number;
 
   spreadSheetId: string;
@@ -49,7 +51,8 @@ export class MaintenanceUploadingSheet extends SheetRange implements IMaintenanc
     this.photoStartColumn = sheet.photoStartColumn;
     this.photoEndColumn = sheet.photoEndColumn;
     this.equipmentRequestedNameColumn = sheet.equipmentRequestedNameColumn;
-    this.equipmentPhotosType = sheet.equipmentPhotosType;
+    this.equipmentPhotosTypeColumn = sheet.equipmentPhotosTypeColumn;
+    this.equipmentPhotosStartColumn = sheet.equipmentPhotosStartColumn;
     this.equipmentPhotosCount = sheet.equipmentPhotosCount;
   }
 }
