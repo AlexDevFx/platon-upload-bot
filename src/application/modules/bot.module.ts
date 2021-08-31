@@ -3,8 +3,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerService } from 'nest-logger';
 import { LoggerModule } from './logger.module';
-import { AuthSceneBuilder } from './bot-scenes/auth.scene';
 import { ConfigurationService } from '../../core/config/configuration.service';
+import {UploadFilesSceneBuilder} from "./bot-scenes/upload-files-scene-builder.service";
 
 @Module({
   imports: [
@@ -13,11 +13,11 @@ import { ConfigurationService } from '../../core/config/configuration.service';
     }),
     LoggerModule,
   ],
-  providers: [AuthSceneBuilder, ConfigurationService],
+  providers: [UploadFilesSceneBuilder, ConfigurationService],
 })
 export class BotModule {
   constructor(
-    private readonly authSceneBuilder: AuthSceneBuilder,
+    private readonly uploadFilesSceneBuilder: UploadFilesSceneBuilder,
     private readonly logger: LoggerService,
     private readonly configurationService: ConfigurationService,
   ) {
@@ -34,13 +34,17 @@ export class BotModule {
 
     this.bot = new Telegraf(botToken);
 
-    const authScene = this.authSceneBuilder.build();
-    const stage = new Stage([authScene]);
+    const uploadFilesScene = this.uploadFilesSceneBuilder.build();
+    const stage = new Stage([uploadFilesScene]);
     this.bot.use(stage.middleware());
     this.bot.use(session());
 
     this.bot.catch((err, ctx) => {
       this.logger.error(`Error for ${ctx.updateType}`, err?.stack);
+    });
+
+    this.bot.command('quad', async (ctx, next) => {
+      await ctx.scene.enter(this.uploadFilesSceneBuilder.SceneName);
     });
 
     this.bot.start(async ctx => {

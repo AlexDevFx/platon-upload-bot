@@ -1,6 +1,6 @@
 export class UploadingFilesInfo {
   files: UploadedFile[];
-  sskNumber: string;
+  maintenanceId: string;
   folderUrl: string;
 }
 

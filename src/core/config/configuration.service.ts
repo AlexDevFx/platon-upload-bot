@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import { Appconfig } from './appconfig';
-import { MaintenanceSheet } from '../sheets/config/equipmentSheet';
-import { EquipmentSheet } from '../sheets/config/maintenanceSheet';
+import { EquipmentSheet } from '../sheets/config/equipmentSheet';
+import { MaintenanceSheet,  } from '../sheets/config/maintenanceSheet';
 import { MaintenanceUploadingSheet } from '../sheets/config/maintenanceUploadingSheet';
 
 @Injectable()

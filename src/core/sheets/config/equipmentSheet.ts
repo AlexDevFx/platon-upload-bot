@@ -1,9 +1,10 @@
 import { SheetRange } from '../sheetRange';
 
-interface IMaintenanceSheet {
+interface IEquipmentSheet {
   idColumn: string;
   sskNumberColumn: string;
-
+  equipmentNameColumn: string;
+  
   spreadSheetId: string;
   sheetName: string;
   startColumnName: string;
@@ -12,9 +13,10 @@ interface IMaintenanceSheet {
   endRow: number;
 }
 
-export class MaintenanceSheet extends SheetRange implements IMaintenanceSheet {
+export class EquipmentSheet extends SheetRange implements IEquipmentSheet {
   idColumn: string;
   sskNumberColumn: string;
+  equipmentNameColumn: string;
 
   spreadSheetId: string;
   sheetName: string;
@@ -23,9 +25,10 @@ export class MaintenanceSheet extends SheetRange implements IMaintenanceSheet {
   startRow: number;
   endRow: number;
 
-  constructor(sheet: IMaintenanceSheet) {
+  constructor(sheet: IEquipmentSheet) {
     super(sheet.spreadSheetId, sheet.sheetName, sheet.startColumnName, sheet.endColumnName, sheet.startRow, sheet.endRow);
     this.idColumn = sheet.idColumn;
     this.sskNumberColumn = sheet.sskNumberColumn;
+    this.equipmentNameColumn = sheet.equipmentNameColumn;
   }
 }
