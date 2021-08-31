@@ -4,6 +4,7 @@ interface IEquipmentSheet {
   idColumn: string;
   sskNumberColumn: string;
   equipmentNameColumn: string;
+  maintenanceDateColumn: string;
 
   spreadSheetId: string;
   sheetName: string;
@@ -17,7 +18,8 @@ export class EquipmentSheet extends SheetRange implements IEquipmentSheet {
   idColumn: string;
   sskNumberColumn: string;
   equipmentNameColumn: string;
-
+  maintenanceDateColumn: string;
+  
   spreadSheetId: string;
   sheetName: string;
   startColumnName: string;
@@ -30,5 +32,6 @@ export class EquipmentSheet extends SheetRange implements IEquipmentSheet {
     this.idColumn = sheet.idColumn;
     this.sskNumberColumn = sheet.sskNumberColumn;
     this.equipmentNameColumn = sheet.equipmentNameColumn;
+    this.maintenanceDateColumn = sheet.maintenanceDateColumn;
   }
 }
