@@ -12,6 +12,7 @@ import {CallbackButton} from "telegraf/typings/markup";
 import {ColumnParam, CompareType, FilterOptions} from "../../../core/sheets/filterOptions";
 import {UploadedEquipmentStore, UploadingType} from "../../../core/sheets/config/uploadedEquipmentStore";
 import moment = require('moment');
+import {v4 as uuidv4} from 'uuid';
 
 const { leave } = Stage;
 
@@ -160,7 +161,7 @@ export class UploadFilesSceneBuilder {
                 }
             }
             for(let exml of eq.examples){
-                stepState.uploadingInfo.requests.push(new RequestFile('',`${message}${exml.description}`));
+                stepState.uploadingInfo.requests.push(new RequestFile(uuidv4(),`${message}${exml.description}`));
             }
         }
     }
