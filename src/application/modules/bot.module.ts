@@ -3,13 +3,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerService } from 'nest-logger';
 import { LoggerModule } from './logger.module';
-import {HttpModule} from "@nestjs/axios";
+import { HttpModule } from '@nestjs/axios';
 import { ConfigurationService } from '../../core/config/configuration.service';
-import {UploadFilesSceneBuilder} from "./bot-scenes/upload-files-scene-builder.service";
-import {UploadedEquipmentStore} from "../../core/sheets/config/uploadedEquipmentStore";
-import {SheetsService} from "../../core/sheets/sheets.service";
-import {FileStorageService} from "../../core/sheets/filesStorage/file-storage.service";
-import {DbStorageService} from "../../core/dataStorage/dbStorage.service";
+import { UploadFilesSceneBuilder } from './bot-scenes/upload-files-scene-builder.service';
+import { UploadedEquipmentStore } from '../../core/sheets/config/uploadedEquipmentStore';
+import { SheetsService } from '../../core/sheets/sheets.service';
+import { FileStorageService } from '../../core/sheets/filesStorage/file-storage.service';
+import { DbStorageService } from '../../core/dataStorage/dbStorage.service';
 
 @Module({
   imports: [

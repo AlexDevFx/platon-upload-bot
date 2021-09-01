@@ -1,4 +1,3 @@
-
 export class UploadingFilesInfo {
   files: UploadedFile[];
   maintenanceId: string;

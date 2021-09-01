@@ -17,7 +17,7 @@ export class MaintenanceSheet extends SheetRange implements IMaintenanceSheet {
   idColumn: string;
   sskNumberColumn: string;
   maintenanceDateColumn: string;
-  
+
   spreadSheetId: string;
   sheetName: string;
   startColumnName: string;

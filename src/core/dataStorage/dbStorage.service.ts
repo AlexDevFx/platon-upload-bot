@@ -1,16 +1,16 @@
-import {Injectable} from "@nestjs/common";
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class DbStorageService {
-    public insert(data: any): boolean {
-        return true;
-    }
+  public insert(data: any): boolean {
+    return true;
+  }
 
-    public find(id: string): any {
-        return {};
-    }
+  public find(id: string): any {
+    return {};
+  }
 
-    public delete(id: string): boolean {
-        return true;
-    }
+  public delete(id: string): boolean {
+    return true;
+  }
 }

@@ -10,7 +10,7 @@ interface IEquipmentSheet {
   rowNumberColumn: string;
   modelNameColumn: string;
   typeColumn: string;
-  
+
   spreadSheetId: string;
   sheetName: string;
   startColumnName: string;
