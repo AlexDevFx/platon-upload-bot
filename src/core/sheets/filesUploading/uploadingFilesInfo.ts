@@ -4,7 +4,7 @@ export class UploadingFilesInfo {
   maintenanceId: string;
   sskNumber: string;
   folderUrl: string;
-  currentIndex: number;
+  currentRequestIndex: number;
   requests: RequestFile[];
 }
 

@@ -13,6 +13,7 @@ import {ColumnParam, CompareType, FilterOptions} from "../../../core/sheets/filt
 import {UploadedEquipmentStore, UploadingType} from "../../../core/sheets/config/uploadedEquipmentStore";
 import moment = require('moment');
 import {v4 as uuidv4} from 'uuid';
+import {DbStorageService} from "../../../core/dataStorage/dbStorage.service";
 
 const { leave } = Stage;
 
@@ -33,6 +34,16 @@ interface UploadFilesSceneState {
     maintenanceId: number;
 }
 
+class FileRequestData {
+    public id: string;
+    public file: UploadedFile;
+    
+    constructor(id: string, file: UploadedFile) {
+        this.id = id;
+        this.file = file;
+    }
+}
+
 
 @Injectable()
 export class UploadFilesSceneBuilder {
@@ -44,7 +55,8 @@ export class UploadFilesSceneBuilder {
         private readonly fileStorageService: FileStorageService,
         private readonly sheetsService: SheetsService,
         private readonly configurationService: ConfigurationService,
-        private readonly uploadedEquipmentStore: UploadedEquipmentStore
+        private readonly uploadedEquipmentStore: UploadedEquipmentStore,
+        private readonly dbStorageService: DbStorageService
     ) {}
 
     private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
@@ -59,21 +71,38 @@ export class UploadFilesSceneBuilder {
         });
     }
 
-    private async uploadFile(file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<void> {
+    private async uploadFile(file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<boolean> {
         const stepState = ctx.scene.state as UploadFilesSceneState;
 
         if (!file) {
             await ctx.reply('Нет загруженного файла');
-            return;
+            return false;
         }
 
         const result = await this.createAndShareFolder(stepState.uploadingInfo.sskNumber, ctx);
         await this.downloadImage(file.url, file.name);
-        await this.fileStorageService.upload(file.name, file.size, result.fileId, null);
+        const uploadResult = await this.fileStorageService.upload(file.name, file.size, result.fileId, null);
 
         if(!stepState.uploadingInfo.folderUrl){
             stepState.uploadingInfo.folderUrl = result.fileUrl;
         }
+        
+        return uploadResult !== undefined;
+    }
+
+    private async sendFileForUploading(requestId: string, file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<boolean> {
+        const stepState = ctx.scene.state as UploadFilesSceneState;
+
+        if (!file) {
+            await ctx.reply('Нет загруженного файла');
+            return false;
+        }
+        const request = stepState.uploadingInfo.requests.find(e => e.id === requestId);
+        if(request){
+            return this.dbStorageService.insert(new FileRequestData(request.id, file));
+        }
+        
+        return false;
     }
 
     private async cancelCommand(ctx: SceneContextMessageUpdate): Promise<void> {
@@ -126,7 +155,7 @@ export class UploadFilesSceneBuilder {
         return buttons;
     }
     
-    private async requestFilesForEquipment(ctx: SceneContextMessageUpdate): Promise<void>{
+    private async createRequestsForFiles(ctx: SceneContextMessageUpdate): Promise<void>{
         const equipmentForUploading = await this.uploadedEquipmentStore.GetEquipment();
         
         if(!equipmentForUploading) return;
@@ -150,20 +179,38 @@ export class UploadFilesSceneBuilder {
         const idIndex = equipmentSheet.getColumnIndex(equipmentSheet.idColumn);
         const addedEquipments = [];
         stepState.uploadingInfo.requests = [];
-        stepState.uploadingInfo.currentIndex = 0;
+        stepState.uploadingInfo.currentRequestIndex = 0;
+        
         for(let eq of equipmentForUploading){
             if(eq.type === UploadingType.Undefined) continue;
             let message = `<b>${eq.name}</b>\n`;
             if(eq.type === UploadingType.Ssk){
                 const sskEquipment = rows.filter(e => e.values[equipmentNameIndex] === eq.name && !addedEquipments.some(ae => ae === e.values[idIndex]))[0];
                 if(sskEquipment){
-                    
+                    addedEquipments.push(sskEquipment.values[idIndex]);
                 }
             }
             for(let exml of eq.examples){
                 stepState.uploadingInfo.requests.push(new RequestFile(uuidv4(),`${message}${exml.description}`));
             }
         }
+    }
+
+    private async startRequestFilesForEquipment(ctx: SceneContextMessageUpdate): Promise<void> {
+        await this.createRequestsForFiles(ctx);
+        await this.sendNextRequest(ctx);
+    }
+    
+    private async sendNextRequest(ctx: SceneContextMessageUpdate): Promise<void> {
+        const stepState = ctx.scene.state as UploadFilesSceneState;
+
+        if(!stepState.uploadingInfo || !stepState.uploadingInfo.requests) return;
+
+        const request = stepState.uploadingInfo.requests[stepState.uploadingInfo.currentRequestIndex];
+        await ctx.reply(request.message, Markup.inlineKeyboard([Markup.callbackButton('✅ Принято', 'ConfirmUploading:' + request.id),
+            Markup.callbackButton('❌ Отклонено', 'RejectUploading:'+ request.id)]).extra({ parse_mode: 'HTML' }));
+        
+        stepState.uploadingInfo.currentRequestIndex++;
     }
     
     public build(): BaseScene<SceneContextMessageUpdate> {
@@ -238,12 +285,14 @@ export class UploadFilesSceneBuilder {
                 }
 
                 stepState.step = UploadFilesSteps.Uploading;
+                await this.startRequestFilesForEquipment(ctx);
             }
         });
 
         scene.action('ConfirmId', async ctx => {
             const stepState = ctx.scene.state as UploadFilesSceneState;
             stepState.step = UploadFilesSteps.Uploading;
+            await this.startRequestFilesForEquipment(ctx);
         });
 
         scene.action('RejectId', async ctx => {
@@ -256,6 +305,67 @@ export class UploadFilesSceneBuilder {
 
         scene.command('cancel', async ctx => {
             await this.cancelCommand(ctx);
+        });
+
+        scene.on('photo', async ctx => {
+            await ctx.reply('Фото принимаются только БЕЗ СЖАТИЯ". Чтобы отправить фото правильно, нужно нажать на скрепку справа от поля ввода сообщения, выделить фото и справа вверху экрана нажать на три точки и выбрать "Отправить без сжатия"');
+        });
+
+        scene.action(/ConfirmUploading:/, async ctx => {
+            const stepState = ctx.scene.state as UploadFilesSceneState;
+           
+            if (stepState.step !== UploadFilesSteps.Uploading) return;
+            const requestId = ctx.callbackQuery.data.split(':')[1];
+            if(!requestId) {
+                this.logger.error('Поле requestId пустое при подтверждении');
+                return;
+            }
+            
+            const request = this.dbStorageService.find(requestId) as FileRequestData;
+            
+            if(!request){
+                this.logger.error('Не найден запрос в сессии пользователя или данные некорректны');
+                return;
+            }
+            
+            await this.uploadFile(request.file, ctx);
+        });
+
+        scene.action(/RejectUploading:/, async ctx => {
+            const stepState = ctx.scene.state as UploadFilesSceneState;
+
+            if (stepState.step !== UploadFilesSteps.Uploading) return;
+
+        });
+
+        scene.on('document', async ctx => {
+            const stepState = ctx.scene.state as UploadFilesSceneState;
+            
+            if (stepState.step !== UploadFilesSteps.Uploading) return;
+            
+            const doc = ctx.message.document;
+            if (doc) {
+                const fileUrl = await ctx.telegram.getFileLink(doc.file_id);
+                const fileName = fileUrl.split('/').pop();
+                
+                if (fileUrl) {
+                   
+                    const request = stepState.uploadingInfo.requests[stepState.uploadingInfo.currentRequestIndex];
+                    await this.sendFileForUploading(request.id, {
+                        url: fileUrl,
+                        name: fileName,
+                        size: doc.file_size,
+                    }, ctx);
+                }
+                
+                if(stepState.uploadingInfo.currentRequestIndex < stepState.uploadingInfo.requests.length){
+                    await this.sendNextRequest(ctx);
+                }
+                else{
+                    stepState.step = UploadFilesSteps.Completed;
+                }
+                
+            }
         });
 
         return scene;

@@ -8,6 +8,7 @@ import {UploadFilesSceneBuilder} from "./bot-scenes/upload-files-scene-builder.s
 import {UploadedEquipmentStore} from "../../core/sheets/config/uploadedEquipmentStore";
 import {SheetsService} from "../../core/sheets/sheets.service";
 import {FileStorageService} from "../../core/sheets/filesStorage/file-storage.service";
+import {DbStorageService} from "../../core/dataStorage/dbStorage.service";
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import {FileStorageService} from "../../core/sheets/filesStorage/file-storage.se
     }),
     LoggerModule,
   ],
-  providers: [UploadFilesSceneBuilder, ConfigurationService, UploadedEquipmentStore, SheetsService, FileStorageService],
+  providers: [UploadFilesSceneBuilder, ConfigurationService, UploadedEquipmentStore, SheetsService, FileStorageService, DbStorageService],
 })
 export class BotModule {
   constructor(
