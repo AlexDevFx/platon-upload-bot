@@ -9,4 +9,8 @@ export class DbStorageService {
     public find(id: string): any {
         return {};
     }
+
+    public delete(id: string): boolean {
+        return true;
+    }
 }

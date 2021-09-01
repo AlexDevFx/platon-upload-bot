@@ -324,11 +324,14 @@ export class UploadFilesSceneBuilder {
             const request = this.dbStorageService.find(requestId) as FileRequestData;
             
             if(!request){
-                this.logger.error('Не найден запрос в сессии пользователя или данные некорректны');
+                stepState.step = UploadFilesSteps.UploadingConfirmed;
+                leave();
                 return;
             }
             
-            await this.uploadFile(request.file, ctx);
+            if(await this.uploadFile(request.file, ctx)){
+                this.dbStorageService.delete(requestId)
+            }
         });
 
         scene.action(/RejectUploading:/, async ctx => {
