@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerService } from 'nest-logger';
 import { LoggerModule } from './logger.module';
+import {HttpModule} from "@nestjs/axios";
 import { ConfigurationService } from '../../core/config/configuration.service';
 import {UploadFilesSceneBuilder} from "./bot-scenes/upload-files-scene-builder.service";
 import {UploadedEquipmentStore} from "../../core/sheets/config/uploadedEquipmentStore";
@@ -16,6 +17,9 @@ import {DbStorageService} from "../../core/dataStorage/dbStorage.service";
       envFilePath: ['../config/.env.development', '../config/.env.production'],
     }),
     LoggerModule,
+    HttpModule.register({
+      timeout: 30000,
+    }),
   ],
   providers: [UploadFilesSceneBuilder, ConfigurationService, UploadedEquipmentStore, SheetsService, FileStorageService, DbStorageService],
 })
