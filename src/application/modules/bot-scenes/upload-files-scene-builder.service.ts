@@ -77,7 +77,7 @@ export class UploadFilesSceneBuilder {
 
   private getQuarter(): number {
     const month = moment().month();
-    return month % 3 === 0 ? month / 3: (month/3) + 1;
+    return (month % 3 === 0 ? month / 3: Math.floor(month/3) + 1);
   }
 
   private async uploadFile(file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<boolean> {
@@ -220,9 +220,13 @@ export class UploadFilesSceneBuilder {
     stepState.uploadingInfo.requests = [];
     stepState.uploadingInfo.currentRequestIndex = 0;
     stepState.requestsToSend = [];
-    
+    let n = 0;
     for (let eq of equipmentForUploading) {
+      if(n > 1) break;
       if (eq.type === UploadingType.Undefined) continue;
+      
+      n++;
+      
       let message = `<b>${eq.name}</b>\n`;
       let additionalInfo = '';
       let equipmentId = eq.name;
@@ -426,7 +430,7 @@ export class UploadFilesSceneBuilder {
     scene.action(/confUpl:/, async ctx => {
       const stepState = ctx.scene.state as UploadFilesSceneState;
 
-      if (stepState.step !== UploadFilesSteps.Uploading) return;
+      if (stepState.step === UploadFilesSteps.Enter || stepState.step === UploadFilesSteps.Cancelled || stepState.step === UploadFilesSteps.UploadingConfirmed) return;
       const data = ctx.callbackQuery.data.split(':');
       const sessionId = data[1];
       const requestId = data[2];
@@ -453,7 +457,7 @@ export class UploadFilesSceneBuilder {
         return;
       }
       
-      request.setStatus(RequestStatus.Confirmed);
+      request.status = (RequestStatus.Confirmed);
       await this.dbStorageService.update(uploadingInfo);
       const confirmedStatus = RequestStatus.Confirmed as number;
       if(uploadingInfo.files?.every(e => e.status === confirmedStatus)){

@@ -44,7 +44,7 @@ export class RequestedFile {
     this.file = file;
   }
 
-  public setStatus(newStatus: RequestStatus) {
+  public setStatus(newStatus: RequestStatus): void {
     this.status = newStatus as number;
   }
 }
