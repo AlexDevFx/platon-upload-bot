@@ -9,8 +9,8 @@ export interface IUserUploadingInfo {
 
 export class UserUploadingInfoDto {
   public files: RequestedFile[];
-  public id: string;
   public username: string;
+  public userId: number;
 }
 
 export class FileRequestData {
@@ -24,9 +24,9 @@ export class FileRequestData {
 }
 
 export class FileData {
-  url: string;
-  name: string;
-  size: number;
+  public url: string;
+  public name: string;
+  public size: number;
 }
 
 export class RequestedFile {

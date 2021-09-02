@@ -15,7 +15,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
 import { JobsService } from '../../../core/jobs/jobs.service';
 import { UserUploadingInfo } from '../../../core/dataStorage/filesUploading/UserUploadingInfo.model';
-import { RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
+import {
+  RequestedFile,
+  RequestStatus,
+  UserUploadingInfoDto
+} from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
 import moment = require('moment');
 
 const { leave } = Stage;
@@ -103,7 +107,16 @@ export class UploadFilesSceneBuilder {
     }
     const request = stepState.uploadingInfo.requests.find(e => e.id === requestId);
     if (request) {
-      //return this.dbStorageService.insert(new FileRequestData(request.id, file));
+      const uploadingInfo = await this.dbStorageService.findBy(stepState.sessionId);
+      const requestedFile = new RequestedFile(requestId, '', {
+        name: file.name,
+        size: file.size,
+        url: file.url
+      });
+      if(uploadingInfo){
+        uploadingInfo.files.push(requestedFile)
+        return await this.dbStorageService.update(uploadingInfo);
+      }
     }
 
     return false;
@@ -164,6 +177,13 @@ export class UploadFilesSceneBuilder {
 
     if (!equipmentForUploading) return;
     const stepState = ctx.scene.state as UploadFilesSceneState;
+
+    stepState.sessionId = await this.dbStorageService.insert({
+      username: ctx.from.username,
+      userId: ctx.from.id,
+      files: []
+    });
+    
     const columnParams: ColumnParam[] = [];
     const equipmentSheet = this.configurationService.equipmentSheet;
 
@@ -230,7 +250,6 @@ export class UploadFilesSceneBuilder {
         user: {
           telegramId: ctx.from.id,
         },
-        sessionId: uuidv4(),
         step: UploadFilesSteps.Enter,
         uploadingInfo: new UploadingFilesInfo(),
       };

@@ -10,10 +10,10 @@ export class DbStorageService {
     private uploadingInfoModel: Model<UserUploadingInfo>,
   ) {}
 
-  public async insert(data: UserUploadingInfoDto): Promise<boolean> {
-    //const createdData = new this.uploadingInfoModel(data);
-    //const userUploadingInfo = await createdData.save();
-    return true;//userUploadingInfo !== undefined;
+  public async insert(data: UserUploadingInfoDto): Promise<string> {
+    const createdData = new this.uploadingInfoModel(data);
+    const userUploadingInfo = await createdData.save();
+    return userUploadingInfo._id.toString();
   }
 
   public async find(id: string): Promise<UserUploadingInfo> {
@@ -21,10 +21,14 @@ export class DbStorageService {
     return new UserUploadingInfo();//data;
   }
 
+  public async findBy(id: string): Promise<UserUploadingInfo> {
+    return await this.uploadingInfoModel.findById(id).exec();
+  }
+
   public async update(data: UserUploadingInfo): Promise<boolean> {
-    //data.isNew = false;
-    //const userUploadingInfo = await data.save();
-    return true;//userUploadingInfo !== undefined;
+    data.isNew = false;
+    const userUploadingInfo = await data.save();
+    return userUploadingInfo !== undefined;
   }
 
   public async delete(id: string): Promise<boolean> {

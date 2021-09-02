@@ -13,6 +13,6 @@ export const UserUploadingSchema = new mongoose.Schema({
       },
     },
   ],
-  id: String,
   username: String,
+  userId: Number
 });
