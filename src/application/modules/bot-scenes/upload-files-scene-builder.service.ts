@@ -35,6 +35,7 @@ interface UploadFilesSceneState {
   uploadingInfo: UploadingFilesInfo;
   step: UploadFilesSteps;
   maintenanceId: number;
+  requestsToSend: RequestFile[];
 }
 
 class FileRequestData {
@@ -231,7 +232,9 @@ export class UploadFilesSceneBuilder {
         }
       }
       for (let exml of eq.examples) {
-        stepState.uploadingInfo.requests.push(new RequestFile(uuidv4().replace('-','').substr(0,8), equipmentId, eq.name, `${message}${additionalInfo}${exml.description}`));
+        const requestFile = new RequestFile(uuidv4().replace('-', '').substr(0, 8), equipmentId, eq.name, `${message}${additionalInfo}${exml.description}`);
+        stepState.uploadingInfo.requests.push(requestFile);
+        stepState.requestsToSend.push(requestFile);
       }
     }
   }
@@ -282,9 +285,9 @@ export class UploadFilesSceneBuilder {
   private async sendNextRequest(ctx: SceneContextMessageUpdate): Promise<void> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
 
-    if (!stepState.uploadingInfo || !stepState.uploadingInfo.requests) return;
+    if (!stepState.requestsToSend) return;
 
-    const request = stepState.uploadingInfo.requests[stepState.uploadingInfo.currentRequestIndex];
+    const request = stepState.requestsToSend.shift();
     await this.sendNextRequestMessage(request, ctx);
     stepState.uploadingInfo.currentRequestIndex++;
   }
@@ -479,7 +482,8 @@ export class UploadFilesSceneBuilder {
       request.setStatus(RequestStatus.Rejected);
       await this.dbStorageService.update(uploadingInfo);
       const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
-      await this.sendNextRequestMessage(requestToSend, ctx);
+      stepState.requestsToSend.push(requestToSend);
+      await this.sendNextRequest(ctx);
     });
 
     scene.on('document', async ctx => {
@@ -493,7 +497,7 @@ export class UploadFilesSceneBuilder {
         const fileName = fileUrl.split('/').pop();
 
         if (fileUrl) {
-          const request = stepState.uploadingInfo.requests[stepState.uploadingInfo.currentRequestIndex];
+          const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
           await this.sendFileForUploading(
             request.id,
             {
@@ -505,7 +509,7 @@ export class UploadFilesSceneBuilder {
           );
         }
 
-        if (stepState.uploadingInfo.currentRequestIndex < stepState.uploadingInfo.requests.length) {
+        if (stepState.requestsToSend && stepState.requestsToSend.length > 0) {
           await this.sendNextRequest(ctx);
         } else {
           stepState.step = UploadFilesSteps.Completed;
