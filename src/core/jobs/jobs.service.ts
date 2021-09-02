@@ -1,10 +1,10 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import Agenda = require('agenda');
 import { SheetsService } from '../sheets/sheets.service';
 import { ConfigurationService } from '../config/configuration.service';
 import { LoggerService } from 'nest-logger';
 import { CompareType, FilterOptions } from '../sheets/filterOptions';
 import * as util from 'util';
+import { Agenda } from 'agenda';
 
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {

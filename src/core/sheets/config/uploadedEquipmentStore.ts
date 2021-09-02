@@ -28,16 +28,16 @@ export class UploadedEquipmentStore {
 
   constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {}
 
-  public async GetEquipment(): Promise<IUploadedEquipment[]> {
+  public async getEquipment(): Promise<IUploadedEquipment[]> {
     const currentTime = moment()
       .utc()
       .toDate();
-    if (this.equipment.length < 1 || currentTime.getTime() - this.updated.getTime() >= 3600000) {
+    if (!this.equipment || this.equipment.length < 1 || currentTime.getTime() - this.updated.getTime() >= 3600000) {
       const columnParams: ColumnParam[] = [];
       const maintenanceUploadingSheet = this.configurationService.maintenanceUploadingSheet;
 
       columnParams.push({
-        column: maintenanceUploadingSheet.equipmentNameColumn,
+        column: maintenanceUploadingSheet.equipmentRequestedNameColumn,
         type: CompareType.IsNotEmpty,
         value: '',
       });
@@ -66,7 +66,7 @@ export class UploadedEquipmentStore {
           }
 
           uploadedEquipment.push({
-            name: r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentNameColumn)],
+            name: r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentRequestedNameColumn)],
             type: type === 'ССК' ? UploadingType.Ssk : type === 'Все' ? UploadingType.All : UploadingType.Undefined,
             examples: examples,
           });

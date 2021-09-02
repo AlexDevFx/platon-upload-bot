@@ -5,8 +5,8 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import { LoggerService } from 'nest-logger';
 
-const CRED_PATH = '../config/credentials.json';
-const TOKEN_PATH = '../config/token.json';
+const CRED_PATH = '../config/sheets-credentials.json';
+const TOKEN_PATH = '../config/sheets-token.json';
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 import Sheets = sheets_v4.Sheets;
 import { ColumnParam, CompareType, FilterOptions, FilterParam } from './filterOptions';
@@ -216,7 +216,7 @@ export class SheetsService {
       scope: SCOPES,
     });
 
-    this.logger.log('Authorize this app by visiting this url: ', authUrl);
+    this.logger.log(`Authorize this app by visiting this url: ${authUrl}`);
 
     return (await new Promise((resolve, reject) => {
       const rl = readline.createInterface({

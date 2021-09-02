@@ -33,7 +33,6 @@ export class BotModule {
   ) {
     this.init(process.env.BOT_TOKEN).then(async () => {
       this.logger.log('Bot has been started');
-      this.logger.log(`DB Connection: ${configurationService.appconfig.dbConnectionString}`);
     });
   }
 
@@ -43,11 +42,11 @@ export class BotModule {
     const startMessage = 'Hello From Bot!';
 
     this.bot = new Telegraf(botToken);
-
+    this.bot.use(session());
+    
     const uploadFilesScene = this.uploadFilesSceneBuilder.build();
     const stage = new Stage([uploadFilesScene]);
     this.bot.use(stage.middleware());
-    this.bot.use(session());
 
     this.bot.catch((err, ctx) => {
       this.logger.error(`Error for ${ctx.updateType}`, err?.stack);

@@ -5,7 +5,7 @@ import { OAuth2Client } from 'google-auth-library';
 import * as fs from 'fs';
 import * as readline from 'readline';
 import { ConfigurationService } from '../../config/configuration.service';
-const CRED_PATH = '../config/credentials.json';
+const CRED_PATH = '../config/drive-credentials.json';
 const DRIVE_TOKEN_PATH = '../config/drive-token.json';
 
 export interface IUploadResult {

@@ -157,7 +157,7 @@ export class UploadFilesSceneBuilder {
   }
 
   private async createRequestsForFiles(ctx: SceneContextMessageUpdate): Promise<void> {
-    const equipmentForUploading = await this.uploadedEquipmentStore.GetEquipment();
+    const equipmentForUploading = await this.uploadedEquipmentStore.getEquipment();
 
     if (!equipmentForUploading) return;
     const stepState = ctx.scene.state as UploadFilesSceneState;
@@ -288,10 +288,10 @@ export class UploadFilesSceneBuilder {
         let sskNumber = foundRow.values[maintenanceSheet.getColumnIndex(maintenanceSheet.sskNumberColumn)];
         if (sskNumber && sskNumber.length > 0) {
           stepState.uploadingInfo.sskNumber = sskNumber;
-
+          const dateIndex = maintenanceSheet.getColumnIndex(maintenanceSheet.maintenanceDateColumn);
           await ctx.reply(
-            `Вы хотите загрузить фото для Квартального ТО для ССК-<b>${sskNumber}</b>.` +
-              +`Дата проведения <b>${foundRow.values[maintenanceSheet.getColumnIndex(maintenanceSheet.maintenanceDateColumn)]}</b>`,
+              `Вы хотите загрузить фото для Квартального ТО для ССК-<b>${sskNumber}</b>.`
+              +` Дата проведения <b>${foundRow.values[dateIndex]}</b>`,
             Markup.inlineKeyboard([Markup.callbackButton('✅Да', 'ConfirmId'), Markup.callbackButton('❌Нет', 'RejectId')]).extra({
               parse_mode: 'HTML',
             }),
