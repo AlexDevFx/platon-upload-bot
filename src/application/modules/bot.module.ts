@@ -11,7 +11,7 @@ import { SheetsService } from '../../core/sheets/sheets.service';
 import { FileStorageService } from '../../core/sheets/filesStorage/file-storage.service';
 import { DbStorageService } from '../../core/dataStorage/dbStorage.service';
 import { JobsModule } from './jobs.module';
-//import { DatabaseModule } from './database.module';
+import { DatabaseModule } from './database.module';
 import { userUploadingInfoProviders } from '../../core/dataStorage/filesUploading/userUploadingInfo.providers';
 
 @Module({
@@ -21,7 +21,7 @@ import { userUploadingInfoProviders } from '../../core/dataStorage/filesUploadin
     }),
     LoggerModule,
     JobsModule,
-    //DatabaseModule,
+    DatabaseModule,
     HttpModule.register({
       timeout: 30000,
     }),

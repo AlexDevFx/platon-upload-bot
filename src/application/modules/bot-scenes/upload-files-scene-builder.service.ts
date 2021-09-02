@@ -11,10 +11,12 @@ import { RequestFile, UploadedFile, UploadingFilesInfo } from '../../../core/she
 import { CallbackButton } from 'telegraf/typings/markup';
 import { ColumnParam, CompareType, FilterOptions } from '../../../core/sheets/filterOptions';
 import { UploadedEquipmentStore, UploadingType } from '../../../core/sheets/config/uploadedEquipmentStore';
-import moment = require('moment');
 import { v4 as uuidv4 } from 'uuid';
 import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
 import { JobsService } from '../../../core/jobs/jobs.service';
+import { UserUploadingInfo } from '../../../core/dataStorage/filesUploading/UserUploadingInfo.model';
+import { RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
+import moment = require('moment');
 
 const { leave } = Stage;
 
@@ -30,6 +32,7 @@ interface UploadFilesSceneState {
   user: {
     telegramId: bigint;
   };
+  sessionId: string;
   uploadingInfo: UploadingFilesInfo;
   step: UploadFilesSteps;
   maintenanceId: number;
@@ -227,6 +230,7 @@ export class UploadFilesSceneBuilder {
         user: {
           telegramId: ctx.from.id,
         },
+        sessionId: uuidv4(),
         step: UploadFilesSteps.Enter,
         uploadingInfo: new UploadingFilesInfo(),
       };
@@ -290,8 +294,7 @@ export class UploadFilesSceneBuilder {
           stepState.uploadingInfo.sskNumber = sskNumber;
           const dateIndex = maintenanceSheet.getColumnIndex(maintenanceSheet.maintenanceDateColumn);
           await ctx.reply(
-              `Вы хотите загрузить фото для Квартального ТО для ССК-<b>${sskNumber}</b>.`
-              +` Дата проведения <b>${foundRow.values[dateIndex]}</b>`,
+            `Вы хотите загрузить фото для Квартального ТО для ССК-<b>${sskNumber}</b>.` + ` Дата проведения <b>${foundRow.values[dateIndex]}</b>`,
             Markup.inlineKeyboard([Markup.callbackButton('✅Да', 'ConfirmId'), Markup.callbackButton('❌Нет', 'RejectId')]).extra({
               parse_mode: 'HTML',
             }),
@@ -338,6 +341,7 @@ export class UploadFilesSceneBuilder {
         return;
       }
 
+      const uploadingInfo = (await this.dbStorageService.find(stepState.sessionId)) as UserUploadingInfo;
       /*const request = this.dbStorageService.find(requestId) as FileRequestData;
 
       if (!request) {
