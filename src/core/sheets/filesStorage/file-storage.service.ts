@@ -168,6 +168,5 @@ export class FileStorageService {
         });
       });
     })) as OAuth2Client;
-    ;
   }
 }

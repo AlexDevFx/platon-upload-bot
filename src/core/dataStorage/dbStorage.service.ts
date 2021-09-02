@@ -18,7 +18,7 @@ export class DbStorageService {
 
   public async find(id: string): Promise<UserUploadingInfo> {
     //const data = await this.uploadingInfoModel.findOne({ id: id }).exec();
-    return new UserUploadingInfo();//data;
+    return new UserUploadingInfo(); //data;
   }
 
   public async findBy(id: string): Promise<UserUploadingInfo> {
@@ -33,6 +33,6 @@ export class DbStorageService {
 
   public async delete(id: string): Promise<boolean> {
     //const result = await this.uploadingInfoModel.deleteOne({ id: id }).exec();
-    return true;// result.deletedCount > 0;
+    return true; // result.deletedCount > 0;
   }
 }

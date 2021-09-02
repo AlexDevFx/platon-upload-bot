@@ -1,20 +1,20 @@
-import {Injectable} from '@nestjs/common';
-import {HttpService} from '@nestjs/axios';
-import {BaseScene, Markup, Stage} from 'telegraf';
-import {SceneContextMessageUpdate} from 'telegraf/typings/stage';
+import { Injectable } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { BaseScene, Markup, Stage } from 'telegraf';
+import { SceneContextMessageUpdate } from 'telegraf/typings/stage';
 import * as fs from 'fs';
-import {LoggerService} from 'nest-logger';
-import {FileStorageService, IUploadResult} from '../../../core/sheets/filesStorage/file-storage.service';
-import {SheetsService} from '../../../core/sheets/sheets.service';
-import {ConfigurationService} from '../../../core/config/configuration.service';
-import {RequestFile, UploadedFile, UploadingFilesInfo} from '../../../core/sheets/filesUploading/uploadingFilesInfo';
-import {CallbackButton} from 'telegraf/typings/markup';
-import {ColumnParam, CompareType, FilterOptions} from '../../../core/sheets/filterOptions';
-import {UploadedEquipmentStore, UploadingType} from '../../../core/sheets/config/uploadedEquipmentStore';
-import {v4 as uuidv4} from 'uuid';
-import {DbStorageService} from '../../../core/dataStorage/dbStorage.service';
-import {JobsService} from '../../../core/jobs/jobs.service';
-import {RequestedFile, RequestStatus} from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
+import { LoggerService } from 'nest-logger';
+import { FileStorageService, IUploadResult } from '../../../core/sheets/filesStorage/file-storage.service';
+import { SheetsService } from '../../../core/sheets/sheets.service';
+import { ConfigurationService } from '../../../core/config/configuration.service';
+import { RequestFile, UploadedFile, UploadingFilesInfo } from '../../../core/sheets/filesUploading/uploadingFilesInfo';
+import { CallbackButton } from 'telegraf/typings/markup';
+import { ColumnParam, CompareType, FilterOptions } from '../../../core/sheets/filterOptions';
+import { UploadedEquipmentStore, UploadingType } from '../../../core/sheets/config/uploadedEquipmentStore';
+import { v4 as uuidv4 } from 'uuid';
+import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
+import { JobsService } from '../../../core/jobs/jobs.service';
+import { RequestedFile, RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
 import moment = require('moment');
 
 const { leave } = Stage;
@@ -77,7 +77,7 @@ export class UploadFilesSceneBuilder {
 
   private getQuarter(): number {
     const month = moment().month();
-    return (month % 3 === 0 ? month / 3: Math.floor(month/3) + 1);
+    return month % 3 === 0 ? month / 3 : Math.floor(month / 3) + 1;
   }
 
   private async uploadFile(file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<boolean> {
@@ -112,10 +112,10 @@ export class UploadFilesSceneBuilder {
       const requestedFile = new RequestedFile(requestId, request.equipmentId, request.equipmentName, {
         name: file.name,
         size: file.size,
-        url: file.url
+        url: file.url,
       });
-      if(uploadingInfo){
-        uploadingInfo.files.push(requestedFile)
+      if (uploadingInfo) {
+        uploadingInfo.files.push(requestedFile);
         return await this.dbStorageService.update(uploadingInfo);
       }
     }
@@ -186,9 +186,9 @@ export class UploadFilesSceneBuilder {
     stepState.sessionId = await this.dbStorageService.insert({
       username: ctx.from.username,
       userId: ctx.from.id,
-      files: []
+      files: [],
     });
-    
+
     const columnParams: ColumnParam[] = [];
     const equipmentSheet = this.configurationService.equipmentSheet;
 
@@ -206,27 +206,27 @@ export class UploadFilesSceneBuilder {
     const equipmentNameIndex = equipmentSheet.getColumnIndex(equipmentSheet.equipmentNameColumn);
     const sskNumberIndex = equipmentSheet.getColumnIndex(equipmentSheet.sskNumberColumn);
     const idIndex = equipmentSheet.getColumnIndex(equipmentSheet.idColumn);
-    
+
     const additionalColumns = [
-      {index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber1Column), name: 'Серийный №1'},
-      {index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber2Column), name: 'Серийный №2'},
-      {index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber3Column), name: 'Серийный №3'},
-      {index: equipmentSheet.getColumnIndex(equipmentSheet.rowNumberColumn), name: 'Полоса'},
-      {index: equipmentSheet.getColumnIndex(equipmentSheet.modelNameColumn), name: 'Модель'},
-      {index: equipmentSheet.getColumnIndex(equipmentSheet.typeColumn), name: 'Тип'}
+      { index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber1Column), name: 'Серийный №1' },
+      { index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber2Column), name: 'Серийный №2' },
+      { index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber3Column), name: 'Серийный №3' },
+      { index: equipmentSheet.getColumnIndex(equipmentSheet.rowNumberColumn), name: 'Полоса' },
+      { index: equipmentSheet.getColumnIndex(equipmentSheet.modelNameColumn), name: 'Модель' },
+      { index: equipmentSheet.getColumnIndex(equipmentSheet.typeColumn), name: 'Тип' },
     ];
-    
+
     const addedEquipments = [];
     stepState.uploadingInfo.requests = [];
     stepState.uploadingInfo.currentRequestIndex = 0;
     stepState.requestsToSend = [];
     let n = 0;
     for (let eq of equipmentForUploading) {
-      if(n > 1) break;
+      if (n > 1) break;
       if (eq.type === UploadingType.Undefined) continue;
-      
+
       n++;
-      
+
       let message = `<b>${eq.name}</b>\n`;
       let additionalInfo = '';
       let equipmentId = eq.name;
@@ -235,18 +235,25 @@ export class UploadFilesSceneBuilder {
         if (sskEquipment) {
           addedEquipments.push(sskEquipment.values[idIndex]);
           const info = [];
-          for(let col of additionalColumns){
-            if(sskEquipment.values[col.index] && sskEquipment.values[col.index] !== ''){
+          for (let col of additionalColumns) {
+            if (sskEquipment.values[col.index] && sskEquipment.values[col.index] !== '') {
               info.push(`${col.name} <b>${sskEquipment.values[col.index]}</b>`);
             }
           }
           additionalInfo = info.join(',');
-          if(additionalInfo !== '') additionalInfo += '\n';
+          if (additionalInfo !== '') additionalInfo += '\n';
           equipmentId = sskEquipment.values[idIndex];
         }
       }
       for (let exml of eq.examples) {
-        const requestFile = new RequestFile(uuidv4().replace('-', '').substr(0, 8), equipmentId, eq.name, `${message}${additionalInfo}${exml.description}`);
+        const requestFile = new RequestFile(
+          uuidv4()
+            .replace('-', '')
+            .substr(0, 8),
+          equipmentId,
+          eq.name,
+          `${message}${additionalInfo}${exml.description}`,
+        );
         stepState.uploadingInfo.requests.push(requestFile);
         stepState.requestsToSend.push(requestFile);
       }
@@ -274,21 +281,21 @@ export class UploadFilesSceneBuilder {
   private async endRequestFilesForEquipment(sessionId: string, ctx: SceneContextMessageUpdate): Promise<void> {
     const uploadingInfo = await this.dbStorageService.findBy(sessionId);
 
-    if(!uploadingInfo){
+    if (!uploadingInfo) {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return;
     }
-    
+
     const confirmedStatus = RequestStatus.Confirmed as number;
     const filesForUploading = uploadingInfo.files?.filter(e => e.status === confirmedStatus);
 
-    if(!filesForUploading){
+    if (!filesForUploading) {
       this.logger.error(`Не найдены данные файлов для загрузки: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return;
     }
-    
-    for(let req of filesForUploading){
-      if(req.status !== confirmedStatus) continue;
+
+    for (let req of filesForUploading) {
+      if (req.status !== confirmedStatus) continue;
       await this.uploadFile(req.file, ctx);
     }
 
@@ -305,17 +312,17 @@ export class UploadFilesSceneBuilder {
     await this.sendNextRequestMessage(request, ctx);
     stepState.uploadingInfo.currentRequestIndex++;
   }
-  
-  private async sendNextRequestMessage(request: RequestFile, ctx: SceneContextMessageUpdate): Promise<void>{
+
+  private async sendNextRequestMessage(request: RequestFile, ctx: SceneContextMessageUpdate): Promise<void> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
     await ctx.reply(
-        request.message,
-        Markup.inlineKeyboard([
-          Markup.callbackButton('✅ Принято', 'confUpl:' + stepState.sessionId + ':' + request.id),
-          Markup.callbackButton('❌ Отклонено', 'rejUpl:' + stepState.sessionId + ':' + request.id),
-        ]).extra({ parse_mode: 'HTML' }),
+      request.message,
+      Markup.inlineKeyboard([
+        Markup.callbackButton('✅ Принято', 'confUpl:' + stepState.sessionId + ':' + request.id),
+        Markup.callbackButton('❌ Отклонено', 'rejUpl:' + stepState.sessionId + ':' + request.id),
+      ]).extra({ parse_mode: 'HTML' }),
     );
-   
+
     stepState.uploadingInfo.currentRequestId = request.id;
   }
 
@@ -430,7 +437,12 @@ export class UploadFilesSceneBuilder {
     scene.action(/confUpl:/, async ctx => {
       const stepState = ctx.scene.state as UploadFilesSceneState;
 
-      if (stepState.step === UploadFilesSteps.Enter || stepState.step === UploadFilesSteps.Cancelled || stepState.step === UploadFilesSteps.UploadingConfirmed) return;
+      if (
+        stepState.step === UploadFilesSteps.Enter ||
+        stepState.step === UploadFilesSteps.Cancelled ||
+        stepState.step === UploadFilesSteps.UploadingConfirmed
+      )
+        return;
       const data = ctx.callbackQuery.data.split(':');
       const sessionId = data[1];
       const requestId = data[2];
@@ -440,27 +452,26 @@ export class UploadFilesSceneBuilder {
       }
 
       const uploadingInfo = await this.dbStorageService.findBy(sessionId);
-      
-      if(!uploadingInfo){
+
+      if (!uploadingInfo) {
         this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
         return;
       }
-      
+
       const request = uploadingInfo.files.find(e => e.id === requestId);
-      
+
       if (!request) {
         this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
         return;
       }
-      
-      if(request.status === (RequestStatus.Confirmed as number)){
+
+      if (request.status === RequestStatus.Confirmed) {
         return;
       }
-      
-      request.status = (RequestStatus.Confirmed);
+
+      request.status = RequestStatus.Confirmed;
       await this.dbStorageService.update(uploadingInfo);
-      const confirmedStatus = RequestStatus.Confirmed as number;
-      if(uploadingInfo.files?.every(e => e.status === confirmedStatus)){
+      if (uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed)) {
         await this.endRequestFilesForEquipment(sessionId, ctx);
         leave();
       }
@@ -481,7 +492,7 @@ export class UploadFilesSceneBuilder {
 
       const uploadingInfo = await this.dbStorageService.findBy(sessionId);
 
-      if(!uploadingInfo){
+      if (!uploadingInfo) {
         this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
         return;
       }
@@ -492,7 +503,7 @@ export class UploadFilesSceneBuilder {
         this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
         return;
       }
-      
+
       request.setStatus(RequestStatus.Rejected);
       await this.dbStorageService.update(uploadingInfo);
       const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
