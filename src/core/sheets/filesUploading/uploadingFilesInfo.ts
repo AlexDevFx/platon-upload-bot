@@ -5,6 +5,7 @@ export class UploadingFilesInfo {
   folderUrl: string;
   currentRequestIndex: number;
   requests: RequestFile[];
+  currentRequestId: string;
 }
 
 export class UploadedFile {
@@ -14,11 +15,15 @@ export class UploadedFile {
 }
 
 export class RequestFile {
-  message: string;
-  id: string;
-
-  constructor(id: string, message: string) {
+  public id: string;
+  public equipmentId: string;
+  public equipmentName: string;
+  public message: string;
+  
+  constructor(id: string, equipmentId: string, equipmentName: string, message: string) {
     this.id = id;
+    this.equipmentId = equipmentId;
+    this.equipmentName = equipmentName;
     this.message = message;
   }
 }

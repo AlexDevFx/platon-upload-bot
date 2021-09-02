@@ -30,14 +30,16 @@ export class FileData {
 }
 
 export class RequestedFile {
-  public message: string;
   public id: string;
+  public equipmentId: string;
+  public equipmentName: string;
   public status: number;
   public file: FileData;
 
-  constructor(id: string, message: string, file: FileData) {
+  constructor(id: string, equipmentId: string, equipmentName: string, file: FileData) {
     this.id = id;
-    this.message = message;
+    this.equipmentId = equipmentId;
+    this.equipmentName = equipmentName;
     this.status = RequestStatus.Unknown as number;
     this.file = file;
   }

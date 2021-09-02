@@ -1,25 +1,20 @@
-import { Injectable } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { BaseScene, Markup, Stage } from 'telegraf';
-import { SceneContextMessageUpdate } from 'telegraf/typings/stage';
+import {Injectable} from '@nestjs/common';
+import {HttpService} from '@nestjs/axios';
+import {BaseScene, Markup, Stage} from 'telegraf';
+import {SceneContextMessageUpdate} from 'telegraf/typings/stage';
 import * as fs from 'fs';
-import { LoggerService } from 'nest-logger';
-import { FileStorageService, IUploadResult } from '../../../core/sheets/filesStorage/file-storage.service';
-import { SheetsService } from '../../../core/sheets/sheets.service';
-import { ConfigurationService } from '../../../core/config/configuration.service';
-import { RequestFile, UploadedFile, UploadingFilesInfo } from '../../../core/sheets/filesUploading/uploadingFilesInfo';
-import { CallbackButton } from 'telegraf/typings/markup';
-import { ColumnParam, CompareType, FilterOptions } from '../../../core/sheets/filterOptions';
-import { UploadedEquipmentStore, UploadingType } from '../../../core/sheets/config/uploadedEquipmentStore';
-import { v4 as uuidv4 } from 'uuid';
-import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
-import { JobsService } from '../../../core/jobs/jobs.service';
-import { UserUploadingInfo } from '../../../core/dataStorage/filesUploading/UserUploadingInfo.model';
-import {
-  RequestedFile,
-  RequestStatus,
-  UserUploadingInfoDto
-} from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
+import {LoggerService} from 'nest-logger';
+import {FileStorageService, IUploadResult} from '../../../core/sheets/filesStorage/file-storage.service';
+import {SheetsService} from '../../../core/sheets/sheets.service';
+import {ConfigurationService} from '../../../core/config/configuration.service';
+import {RequestFile, UploadedFile, UploadingFilesInfo} from '../../../core/sheets/filesUploading/uploadingFilesInfo';
+import {CallbackButton} from 'telegraf/typings/markup';
+import {ColumnParam, CompareType, FilterOptions} from '../../../core/sheets/filterOptions';
+import {UploadedEquipmentStore, UploadingType} from '../../../core/sheets/config/uploadedEquipmentStore';
+import {v4 as uuidv4} from 'uuid';
+import {DbStorageService} from '../../../core/dataStorage/dbStorage.service';
+import {JobsService} from '../../../core/jobs/jobs.service';
+import {RequestedFile, RequestStatus} from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
 import moment = require('moment');
 
 const { leave } = Stage;
@@ -108,7 +103,7 @@ export class UploadFilesSceneBuilder {
     const request = stepState.uploadingInfo.requests.find(e => e.id === requestId);
     if (request) {
       const uploadingInfo = await this.dbStorageService.findBy(stepState.sessionId);
-      const requestedFile = new RequestedFile(requestId, '', {
+      const requestedFile = new RequestedFile(requestId, request.equipmentId, request.equipmentName, {
         name: file.name,
         size: file.size,
         url: file.url
@@ -201,6 +196,16 @@ export class UploadFilesSceneBuilder {
     const equipmentNameIndex = equipmentSheet.getColumnIndex(equipmentSheet.equipmentNameColumn);
     const sskNumberIndex = equipmentSheet.getColumnIndex(equipmentSheet.sskNumberColumn);
     const idIndex = equipmentSheet.getColumnIndex(equipmentSheet.idColumn);
+    
+    const additionalColumns = [
+      {index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber1Column), name: 'Серийный №1'},
+      {index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber2Column), name: 'Серийный №2'},
+      {index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber3Column), name: 'Серийный №3'},
+      {index: equipmentSheet.getColumnIndex(equipmentSheet.rowNumberColumn), name: 'Полоса'},
+      {index: equipmentSheet.getColumnIndex(equipmentSheet.modelNameColumn), name: 'Модель'},
+      {index: equipmentSheet.getColumnIndex(equipmentSheet.typeColumn), name: 'Тип'}
+    ];
+    
     const addedEquipments = [];
     stepState.uploadingInfo.requests = [];
     stepState.uploadingInfo.currentRequestIndex = 0;
@@ -208,14 +213,25 @@ export class UploadFilesSceneBuilder {
     for (let eq of equipmentForUploading) {
       if (eq.type === UploadingType.Undefined) continue;
       let message = `<b>${eq.name}</b>\n`;
+      let additionalInfo = '';
+      let equipmentId = eq.name;
       if (eq.type === UploadingType.Ssk) {
         const sskEquipment = rows.filter(e => e.values[equipmentNameIndex] === eq.name && !addedEquipments.some(ae => ae === e.values[idIndex]))[0];
         if (sskEquipment) {
           addedEquipments.push(sskEquipment.values[idIndex]);
+          const info = [];
+          for(let col of additionalColumns){
+            if(sskEquipment.values[col.index] && sskEquipment.values[col.index] !== ''){
+              info.push(`${col.name} <b>${sskEquipment.values[col.index]}</b>`);
+            }
+          }
+          additionalInfo = info.join(',');
+          if(additionalInfo !== '') additionalInfo += '\n';
+          equipmentId = sskEquipment.values[idIndex];
         }
       }
       for (let exml of eq.examples) {
-        stepState.uploadingInfo.requests.push(new RequestFile(uuidv4(), `${message}${exml.description}`));
+        stepState.uploadingInfo.requests.push(new RequestFile(uuidv4().replace('-','').substr(0,8), equipmentId, eq.name, `${message}${additionalInfo}${exml.description}`));
       }
     }
   }
@@ -223,6 +239,44 @@ export class UploadFilesSceneBuilder {
   private async startRequestFilesForEquipment(ctx: SceneContextMessageUpdate): Promise<void> {
     await this.createRequestsForFiles(ctx);
     await this.sendNextRequest(ctx);
+    /*const stepState = ctx.scene.state as UploadFilesSceneState;
+    
+    if (!stepState.uploadingInfo || !stepState.uploadingInfo.requests) return;
+
+    for(const request of stepState.uploadingInfo.requests){
+      await ctx.reply(
+          request.message,
+          Markup.inlineKeyboard([
+            Markup.callbackButton('✅ Принято', 'confUpl:' + stepState.sessionId + ':' + request.id),
+            Markup.callbackButton('❌ Отклонено', 'rejUpl:' + stepState.sessionId + ':' + request.id),
+          ]).extra({ parse_mode: 'HTML' }),
+      );
+    }*/
+  }
+
+  private async endRequestFilesForEquipment(sessionId: string, ctx: SceneContextMessageUpdate): Promise<void> {
+    const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+
+    if(!uploadingInfo){
+      this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+      return;
+    }
+    
+    const confirmedStatus = RequestStatus.Confirmed as number;
+    const filesForUploading = uploadingInfo.files?.filter(e => e.status === confirmedStatus);
+
+    if(!filesForUploading){
+      this.logger.error(`Не найдены данные файлов для загрузки: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+      return;
+    }
+    
+    for(let req of filesForUploading){
+      if(req.status !== confirmedStatus) continue;
+      await this.uploadFile(req.file, ctx);
+    }
+
+    const stepState = ctx.scene.state as UploadFilesSceneState;
+    stepState.step = UploadFilesSteps.UploadingConfirmed;
   }
 
   private async sendNextRequest(ctx: SceneContextMessageUpdate): Promise<void> {
@@ -231,15 +285,21 @@ export class UploadFilesSceneBuilder {
     if (!stepState.uploadingInfo || !stepState.uploadingInfo.requests) return;
 
     const request = stepState.uploadingInfo.requests[stepState.uploadingInfo.currentRequestIndex];
-    await ctx.reply(
-      request.message,
-      Markup.inlineKeyboard([
-        Markup.callbackButton('✅ Принято', 'ConfirmUploading:' + request.id),
-        Markup.callbackButton('❌ Отклонено', 'RejectUploading:' + request.id),
-      ]).extra({ parse_mode: 'HTML' }),
-    );
-
+    await this.sendNextRequestMessage(request, ctx);
     stepState.uploadingInfo.currentRequestIndex++;
+  }
+  
+  private async sendNextRequestMessage(request: RequestFile, ctx: SceneContextMessageUpdate): Promise<void>{
+    const stepState = ctx.scene.state as UploadFilesSceneState;
+    await ctx.reply(
+        request.message,
+        Markup.inlineKeyboard([
+          Markup.callbackButton('✅ Принято', 'confUpl:' + stepState.sessionId + ':' + request.id),
+          Markup.callbackButton('❌ Отклонено', 'rejUpl:' + stepState.sessionId + ':' + request.id),
+        ]).extra({ parse_mode: 'HTML' }),
+    );
+   
+    stepState.uploadingInfo.currentRequestId = request.id;
   }
 
   public build(): BaseScene<SceneContextMessageUpdate> {
@@ -350,34 +410,76 @@ export class UploadFilesSceneBuilder {
       );
     });
 
-    scene.action(/ConfirmUploading:/, async ctx => {
+    scene.action(/confUpl:/, async ctx => {
       const stepState = ctx.scene.state as UploadFilesSceneState;
 
       if (stepState.step !== UploadFilesSteps.Uploading) return;
-      const requestId = ctx.callbackQuery.data.split(':')[1];
+      const data = ctx.callbackQuery.data.split(':');
+      const sessionId = data[1];
+      const requestId = data[2];
       if (!requestId) {
         this.logger.error('Поле requestId пустое при подтверждении');
         return;
       }
 
-      const uploadingInfo = (await this.dbStorageService.find(stepState.sessionId)) as UserUploadingInfo;
-      /*const request = this.dbStorageService.find(requestId) as FileRequestData;
-
-      if (!request) {
-        stepState.step = UploadFilesSteps.UploadingConfirmed;
-        leave();
+      const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+      
+      if(!uploadingInfo){
+        this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
         return;
       }
-
-      if (await this.uploadFile(request.file, ctx)) {
-        this.dbStorageService.delete(requestId);
-      }*/
+      
+      const request = uploadingInfo.files.find(e => e.id === requestId);
+      
+      if (!request) {
+        this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+        return;
+      }
+      
+      if(request.status === (RequestStatus.Confirmed as number)){
+        return;
+      }
+      
+      request.setStatus(RequestStatus.Confirmed);
+      await this.dbStorageService.update(uploadingInfo);
+      const confirmedStatus = RequestStatus.Confirmed as number;
+      if(uploadingInfo.files?.every(e => e.status === confirmedStatus)){
+        await this.endRequestFilesForEquipment(sessionId, ctx);
+        leave();
+      }
     });
 
-    scene.action(/RejectUploading:/, async ctx => {
+    scene.action(/rejUpl:/, async ctx => {
       const stepState = ctx.scene.state as UploadFilesSceneState;
 
       if (stepState.step !== UploadFilesSteps.Uploading) return;
+
+      const data = ctx.callbackQuery.data.split(':');
+      const sessionId = data[1];
+      const requestId = data[2];
+      if (!requestId) {
+        this.logger.error('Поле requestId пустое при отклонении');
+        return;
+      }
+
+      const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+
+      if(!uploadingInfo){
+        this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+        return;
+      }
+
+      const request = uploadingInfo.files.find(e => e.id === requestId);
+
+      if (!request) {
+        this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+        return;
+      }
+      
+      request.setStatus(RequestStatus.Rejected);
+      await this.dbStorageService.update(uploadingInfo);
+      const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
+      await this.sendNextRequestMessage(requestToSend, ctx);
     });
 
     scene.on('document', async ctx => {

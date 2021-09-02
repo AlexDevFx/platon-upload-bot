@@ -3,7 +3,8 @@ import * as mongoose from 'mongoose';
 export const UserUploadingSchema = new mongoose.Schema({
   files: [
     {
-      message: String,
+      equipmentId: String,
+      equipmentName: String,
       id: String,
       status: Number,
       file: {
