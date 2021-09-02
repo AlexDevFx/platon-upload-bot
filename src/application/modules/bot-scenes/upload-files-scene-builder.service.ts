@@ -17,6 +17,7 @@ import { JobsService } from '../../../core/jobs/jobs.service';
 import { RequestedFile, RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
 import moment = require('moment');
 import {IPerson, PersonsStore} from "../../../core/sheets/config/personsStore";
+import {SskEquipmentStore} from "../../../core/sheets/config/sskEquipmentStore";
 
 const { leave } = Stage;
 
@@ -71,7 +72,8 @@ export class UploadFilesSceneBuilder {
     private readonly uploadedEquipmentStore: UploadedEquipmentStore,
     private readonly dbStorageService: DbStorageService,
     private readonly jobsService: JobsService,
-    private readonly personsStore: PersonsStore
+    private readonly personsStore: PersonsStore,
+    private readonly sskEquipmentStore: SskEquipmentStore
   ) {}
 
   private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
@@ -189,7 +191,7 @@ export class UploadFilesSceneBuilder {
   }
 
   private async createRequestsForFiles(ctx: SceneContextMessageUpdate): Promise<void> {
-    const equipmentForUploading = await this.uploadedEquipmentStore.getEquipment();
+    const equipmentForUploading = await this.uploadedEquipmentStore.getData();
 
     if (!equipmentForUploading) return;
     const stepState = ctx.scene.state as UploadFilesSceneState;
@@ -213,20 +215,8 @@ export class UploadFilesSceneBuilder {
       range: equipmentSheet,
     };
 
-    const rows = await this.sheetsService.getFilteredRows(filterOptions);
-    const equipmentNameIndex = equipmentSheet.getColumnIndex(equipmentSheet.equipmentNameColumn);
-    const sskNumberIndex = equipmentSheet.getColumnIndex(equipmentSheet.sskNumberColumn);
-    const idIndex = equipmentSheet.getColumnIndex(equipmentSheet.idColumn);
-
-    const additionalColumns = [
-      { index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber1Column), name: 'Серийный №1' },
-      { index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber2Column), name: 'Серийный №2' },
-      { index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber3Column), name: 'Серийный №3' },
-      { index: equipmentSheet.getColumnIndex(equipmentSheet.rowNumberColumn), name: 'Полоса' },
-      { index: equipmentSheet.getColumnIndex(equipmentSheet.modelNameColumn), name: 'Модель' },
-      { index: equipmentSheet.getColumnIndex(equipmentSheet.typeColumn), name: 'Тип' },
-    ];
-
+    const sskEquipments = (await this.sskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
+   
     const addedEquipments = [];
     stepState.uploadingInfo.requests = [];
     stepState.uploadingInfo.currentRequestIndex = 0;
@@ -242,18 +232,18 @@ export class UploadFilesSceneBuilder {
       let additionalInfo = '';
       let equipmentId = eq.name;
       if (eq.type === UploadingType.Ssk) {
-        const sskEquipment = rows.filter(e => e.values[equipmentNameIndex] === eq.name && !addedEquipments.some(ae => ae === e.values[idIndex]))[0];
+        const sskEquipment = sskEquipments.filter(e => e.name === eq.name && !addedEquipments.some(ae => ae === e.id))[0];
         if (sskEquipment) {
-          addedEquipments.push(sskEquipment.values[idIndex]);
+          addedEquipments.push(sskEquipment.id);
           const info = [];
-          for (let col of additionalColumns) {
-            if (sskEquipment.values[col.index] && sskEquipment.values[col.index] !== '') {
-              info.push(`${col.name} <b>${sskEquipment.values[col.index]}</b>`);
+          for (let ai of sskEquipment.additionalInfo) {
+            if (ai.value && ai.value !== '') {
+              info.push(`${ai.name} <b>${ai.value}</b>`);
             }
           }
           additionalInfo = info.join(',');
           if (additionalInfo !== '') additionalInfo += '\n';
-          equipmentId = sskEquipment.values[idIndex];
+          equipmentId = sskEquipment.id;
         }
       }
       for (let exml of eq.examples) {

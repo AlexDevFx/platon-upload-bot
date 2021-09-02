@@ -14,6 +14,7 @@ import { JobsModule } from './jobs.module';
 import { DatabaseModule } from './database.module';
 import { userUploadingInfoProviders } from '../../core/dataStorage/filesUploading/userUploadingInfo.providers';
 import {PersonsStore} from "../../core/sheets/config/personsStore";
+import {SskEquipmentStore} from "../../core/sheets/config/sskEquipmentStore";
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import {PersonsStore} from "../../core/sheets/config/personsStore";
     FileStorageService,
     DbStorageService,
     PersonsStore,
+    SskEquipmentStore,
     ...userUploadingInfoProviders,
   ],
 })

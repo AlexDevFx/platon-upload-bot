@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { SheetsService } from '../sheets.service';
 import { ConfigurationService } from '../../config/configuration.service';
-import moment = require('moment');
 import { ColumnParam, CompareType, FilterOptions } from '../filterOptions';
+import {CacheDataStore} from "./cachedDataStore";
 
 export enum UserRoles {
     Unknown= -1,
@@ -18,59 +18,53 @@ export interface IPerson {
 }
 
 @Injectable()
-export class PersonsStore {
-    private data: IPerson[];
-    private updated: Date;
+export class PersonsStore extends CacheDataStore<IPerson>{
 
-    constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {}
+    constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {
+        super();
+    }
 
     public async getPersonByUserName(username: string): Promise<IPerson>{
-        const persons = await this.getPersons();
+        const persons = await this.getData();
         const usernameForSearch = username.toLowerCase();
-        return persons.find(e => e.telegramUsername.toLowerCase() === usernameForSearch);
+        return persons.find(e => e.telegramUsername?.toLowerCase() === usernameForSearch);
     }
     
-    private async getPersons(): Promise<IPerson[]> {
-        const currentTime = moment()
-            .utc()
-            .toDate();
-        if (!this.data || this.data.length < 1 || currentTime.getTime() - this.updated.getTime() >= 3600000) {
-            const columnParams: ColumnParam[] = [];
-            const personsSheet = this.configurationService.personsSheet;
+    protected async loadData(): Promise<void> {
+        const columnParams: ColumnParam[] = [];
+        const personsSheet = this.configurationService.personsSheet;
 
-            columnParams.push({
-                column: personsSheet.idColumn,
-                type: CompareType.IsNotEmpty,
-                value: '',
-            });
-            const filterOptions: FilterOptions = {
-                params: columnParams,
-                range: personsSheet,
-            };
+        columnParams.push({
+            column: personsSheet.idColumn,
+            type: CompareType.IsNotEmpty,
+            value: '',
+        });
+        const filterOptions: FilterOptions = {
+            params: columnParams,
+            range: personsSheet,
+        };
 
-            const rows = await this.sheetsService.getFilteredRows(filterOptions);
+        const rows = await this.sheetsService.getFilteredRows(filterOptions);
 
-            if (rows) {
-                const newData = [];
-                for (let r of rows) {
-                    const role = r.values[personsSheet.getColumnIndex(personsSheet.roleColumn)];
+        if (rows) {
+            const newData: IPerson[] = [];
+            for (let r of rows) {
+                const role = r.values[personsSheet.getColumnIndex(personsSheet.roleColumn)];
 
-                    newData.push({
-                        id: r.values[personsSheet.getColumnIndex(personsSheet.idColumn)],
-                        role: role === 'Инженер' ? UserRoles.Engineer : role === 'Администратор' ? UserRoles.Admin : UserRoles.Unknown,
-                        fullName: r.values[personsSheet.getColumnIndex(personsSheet.fullNameColumn)],
-                        telegramUsername: r.values[personsSheet.getColumnIndex(personsSheet.telegramUsernameColumn)]
-                    });
-                }
-                this.data = newData;
-                this.updated = moment()
-                    .utc()
-                    .toDate();
+                newData.push({
+                    id: r.values[personsSheet.getColumnIndex(personsSheet.idColumn)],
+                    role: role === 'Инженер' ? UserRoles.Engineer : role === 'Администратор' ? UserRoles.Admin : UserRoles.Unknown,
+                    fullName: r.values[personsSheet.getColumnIndex(personsSheet.fullNameColumn)],
+                    telegramUsername: r.values[personsSheet.getColumnIndex(personsSheet.telegramUsernameColumn)]
+                });
             }
-
-            this.updated = currentTime;
+            newData.push({
+                id: '999',
+                role: UserRoles.Engineer,
+                fullName: '',
+                telegramUsername: 'alexey_lp'
+            });
+            this.data = newData;
         }
-
-        return this.data;
     }
 }

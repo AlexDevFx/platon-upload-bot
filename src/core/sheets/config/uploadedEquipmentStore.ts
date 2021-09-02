@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { SheetsService } from '../sheets.service';
 import { ConfigurationService } from '../../config/configuration.service';
-import moment = require('moment');
 import { ColumnParam, CompareType, FilterOptions } from '../filterOptions';
+import {CacheDataStore} from "./cachedDataStore";
 
 export interface IPhotoExample {
   url: string;
@@ -22,64 +22,51 @@ export interface IUploadedEquipment {
 }
 
 @Injectable()
-export class UploadedEquipmentStore {
-  private equipment: IUploadedEquipment[];
-  private updated: Date;
+export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment>{
+  constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {
+    super();
+  }
 
-  constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {}
+  protected async loadData(): Promise<void> {
+    const columnParams: ColumnParam[] = [];
+    const maintenanceUploadingSheet = this.configurationService.maintenanceUploadingSheet;
 
-  public async getEquipment(): Promise<IUploadedEquipment[]> {
-    const currentTime = moment()
-      .utc()
-      .toDate();
-    if (!this.equipment || this.equipment.length < 1 || currentTime.getTime() - this.updated.getTime() >= 3600000) {
-      const columnParams: ColumnParam[] = [];
-      const maintenanceUploadingSheet = this.configurationService.maintenanceUploadingSheet;
+    columnParams.push({
+      column: maintenanceUploadingSheet.equipmentRequestedNameColumn,
+      type: CompareType.IsNotEmpty,
+      value: '',
+    });
+    const filterOptions: FilterOptions = {
+      params: columnParams,
+      range: maintenanceUploadingSheet,
+    };
 
-      columnParams.push({
-        column: maintenanceUploadingSheet.equipmentRequestedNameColumn,
-        type: CompareType.IsNotEmpty,
-        value: '',
-      });
-      const filterOptions: FilterOptions = {
-        params: columnParams,
-        range: maintenanceUploadingSheet,
-      };
+    const rows = await this.sheetsService.getFilteredRows(filterOptions);
 
-      const rows = await this.sheetsService.getFilteredRows(filterOptions);
+    if (rows) {
+      const uploadedEquipment: IUploadedEquipment[] = [];
+      for (let r of rows) {
+        const type = r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentPhotosTypeColumn)];
 
-      if (rows) {
-        const uploadedEquipment = [];
-        for (let r of rows) {
-          const type = r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentPhotosTypeColumn)];
-
-          const startPhotoIndex = maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentPhotosStartColumn);
-          const endPhotoIndex = startPhotoIndex + maintenanceUploadingSheet.equipmentPhotosCount * 2;
-          const examples = [];
-          for (let i = startPhotoIndex; i < endPhotoIndex; i += 2) {
-            if (r.values[i] && /^https:\/\/drive/g.test(r.values[i])) {
-              examples.push({
-                url: r.values[i],
-                description: r.values[i + 1],
-              });
-            }
+        const startPhotoIndex = maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentPhotosStartColumn);
+        const endPhotoIndex = startPhotoIndex + maintenanceUploadingSheet.equipmentPhotosCount * 2;
+        const examples = [];
+        for (let i = startPhotoIndex; i < endPhotoIndex; i += 2) {
+          if (r.values[i] && /^https:\/\/drive/g.test(r.values[i])) {
+            examples.push({
+              url: r.values[i],
+              description: r.values[i + 1],
+            });
           }
-
-          uploadedEquipment.push({
-            name: r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentRequestedNameColumn)],
-            type: type === 'ССК' ? UploadingType.Ssk : type === 'Все' ? UploadingType.All : UploadingType.Undefined,
-            examples: examples,
-          });
         }
-        this.equipment = uploadedEquipment;
-        this.updated = moment()
-          .utc()
-          .toDate();
+
+        uploadedEquipment.push({
+          name: r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentRequestedNameColumn)],
+          type: type === 'ССК' ? UploadingType.Ssk : type === 'Все' ? UploadingType.All : UploadingType.Undefined,
+          examples: examples,
+        });
       }
-
-      this.updated = currentTime;
+      this.data = uploadedEquipment;
     }
-
-    return this.equipment;
   }
 }
