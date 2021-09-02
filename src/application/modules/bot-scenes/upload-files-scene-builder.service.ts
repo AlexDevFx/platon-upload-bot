@@ -14,6 +14,7 @@ import { UploadedEquipmentStore, UploadingType } from '../../../core/sheets/conf
 import moment = require('moment');
 import { v4 as uuidv4 } from 'uuid';
 import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
+import {JobsService} from "../../../core/jobs/jobs.service";
 
 const { leave } = Stage;
 
@@ -56,6 +57,7 @@ export class UploadFilesSceneBuilder {
     private readonly configurationService: ConfigurationService,
     private readonly uploadedEquipmentStore: UploadedEquipmentStore,
     private readonly dbStorageService: DbStorageService,
+    private readonly jobsService: JobsService
   ) {}
 
   private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
