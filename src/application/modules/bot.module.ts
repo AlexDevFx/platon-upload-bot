@@ -13,6 +13,7 @@ import { DbStorageService } from '../../core/dataStorage/dbStorage.service';
 import { JobsModule } from './jobs.module';
 import { DatabaseModule } from './database.module';
 import { userUploadingInfoProviders } from '../../core/dataStorage/filesUploading/userUploadingInfo.providers';
+import {PersonsStore} from "../../core/sheets/config/personsStore";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { userUploadingInfoProviders } from '../../core/dataStorage/filesUploadin
     SheetsService,
     FileStorageService,
     DbStorageService,
+    PersonsStore,
     ...userUploadingInfoProviders,
   ],
 })

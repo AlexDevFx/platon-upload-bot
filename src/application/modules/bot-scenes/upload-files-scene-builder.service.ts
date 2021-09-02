@@ -16,6 +16,7 @@ import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
 import { JobsService } from '../../../core/jobs/jobs.service';
 import { RequestedFile, RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
 import moment = require('moment');
+import {IPerson, PersonsStore} from "../../../core/sheets/config/personsStore";
 
 const { leave } = Stage;
 
@@ -30,6 +31,7 @@ enum UploadFilesSteps {
 interface UploadFilesSceneState {
   user: {
     telegramId: bigint;
+    person: IPerson,
   };
   sessionId: string;
   uploadingInfo: UploadingFilesInfo;
@@ -61,6 +63,7 @@ export class UploadFilesSceneBuilder {
     private readonly uploadedEquipmentStore: UploadedEquipmentStore,
     private readonly dbStorageService: DbStorageService,
     private readonly jobsService: JobsService,
+    private readonly personsStore: PersonsStore
   ) {}
 
   private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
@@ -330,9 +333,11 @@ export class UploadFilesSceneBuilder {
     const scene = new BaseScene(this.SceneName);
 
     scene.enter(async ctx => {
+      const person = await this.personsStore.getPersonByUserName(ctx.from.username);
       ctx.scene.state = {
         user: {
           telegramId: ctx.from.id,
+          person: person
         },
         step: UploadFilesSteps.Enter,
         uploadingInfo: new UploadingFilesInfo(),
