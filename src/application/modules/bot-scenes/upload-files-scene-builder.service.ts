@@ -323,8 +323,9 @@ export class UploadFilesSceneBuilder {
       return;
     }
 
-    const rows = [];
-    for(let r of recordsToAdd){
+    const rows = [[]];
+    for(let i = 0; i < recordsToAdd.length; i++){
+      const r = recordsToAdd[i];
       const rowData = [
         r.maintenanceId,
         r.equipmentName,
