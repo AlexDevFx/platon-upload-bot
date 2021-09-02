@@ -75,6 +75,11 @@ export class UploadFilesSceneBuilder {
     });
   }
 
+  private getQuarter(): number {
+    const month = moment().month();
+    return month % 3 === 0 ? month / 3: (month/3) + 1;
+  }
+
   private async uploadFile(file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<boolean> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
 
@@ -125,22 +130,26 @@ export class UploadFilesSceneBuilder {
   }
 
   private async createAndShareFolder(sskNumber: string, ctx: SceneContextMessageUpdate): Promise<IUploadResult> {
-    let result = await this.fileStorageService.getOrCreateFolder(sskNumber + ' ССК', null, null);
+    const quarterFolderName = `${moment().format('YYYY')}.${this.getQuarter()}`;
+    let result = await this.fileStorageService.getOrCreateFolder(quarterFolderName, null, null);
+    if (!result.success) {
+      await ctx.reply(`Не удалось создать папку ${quarterFolderName}`);
+    }
+
+    result = await this.fileStorageService.getOrCreateFolder('Фото ТО', result.fileId, null);
+    if (!result.success) {
+      await ctx.reply('Не удалось создать папку Фото ТО');
+    }
+
+    result = await this.fileStorageService.getOrCreateFolder(sskNumber, result.fileId, null);
 
     if (!result.success) {
       await ctx.reply(`Не удалось создать папку ${sskNumber}`);
     }
 
-    const filesFolderName = moment().format('YYYY.MM.DD');
-    result = await this.fileStorageService.getOrCreateFolder(filesFolderName, result.fileId, null);
-
-    if (!result.success) {
-      await ctx.reply(`Не удалось создать папку ${filesFolderName}`);
-    }
-
     result = await this.fileStorageService.shareFolderForReading(result.fileId);
     if (!result.success) {
-      await ctx.reply(`Не удалось получить доступ к папке ${filesFolderName}`);
+      await ctx.reply(`Не удалось получить доступ к папке ${sskNumber}`);
     }
 
     return result;
