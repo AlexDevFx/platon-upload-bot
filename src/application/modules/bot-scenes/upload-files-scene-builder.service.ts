@@ -219,7 +219,8 @@ export class UploadFilesSceneBuilder {
     const addedEquipments = [];
     stepState.uploadingInfo.requests = [];
     stepState.uploadingInfo.currentRequestIndex = 0;
-
+    stepState.requestsToSend = [];
+    
     for (let eq of equipmentForUploading) {
       if (eq.type === UploadingType.Undefined) continue;
       let message = `<b>${eq.name}</b>\n`;
