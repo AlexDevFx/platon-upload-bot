@@ -11,6 +11,8 @@ import { SheetsService } from '../../core/sheets/sheets.service';
 import { FileStorageService } from '../../core/sheets/filesStorage/file-storage.service';
 import { DbStorageService } from '../../core/dataStorage/dbStorage.service';
 import { JobsModule } from './jobs.module';
+//import { DatabaseModule } from './database.module';
+import { userUploadingInfoProviders } from '../../core/dataStorage/filesUploading/userUploadingInfo.providers';
 
 @Module({
   imports: [
@@ -19,11 +21,20 @@ import { JobsModule } from './jobs.module';
     }),
     LoggerModule,
     JobsModule,
+    //DatabaseModule,
     HttpModule.register({
       timeout: 30000,
     }),
   ],
-  providers: [UploadFilesSceneBuilder, ConfigurationService, UploadedEquipmentStore, SheetsService, FileStorageService, DbStorageService],
+  providers: [
+    UploadFilesSceneBuilder,
+    ConfigurationService,
+    UploadedEquipmentStore,
+    SheetsService,
+    FileStorageService,
+    DbStorageService,
+    ...userUploadingInfoProviders,
+  ],
 })
 export class BotModule {
   constructor(
@@ -43,7 +54,7 @@ export class BotModule {
 
     this.bot = new Telegraf(botToken);
     this.bot.use(session());
-    
+
     const uploadFilesScene = this.uploadFilesSceneBuilder.build();
     const stage = new Stage([uploadFilesScene]);
     this.bot.use(stage.middleware());

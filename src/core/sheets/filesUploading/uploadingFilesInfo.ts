@@ -16,6 +16,7 @@ export class UploadedFile {
 export class RequestFile {
   message: string;
   id: string;
+
   constructor(id: string, message: string) {
     this.id = id;
     this.message = message;

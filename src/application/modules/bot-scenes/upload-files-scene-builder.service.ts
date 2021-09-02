@@ -100,7 +100,7 @@ export class UploadFilesSceneBuilder {
     }
     const request = stepState.uploadingInfo.requests.find(e => e.id === requestId);
     if (request) {
-      return this.dbStorageService.insert(new FileRequestData(request.id, file));
+      //return this.dbStorageService.insert(new FileRequestData(request.id, file));
     }
 
     return false;
@@ -338,7 +338,7 @@ export class UploadFilesSceneBuilder {
         return;
       }
 
-      const request = this.dbStorageService.find(requestId) as FileRequestData;
+      /*const request = this.dbStorageService.find(requestId) as FileRequestData;
 
       if (!request) {
         stepState.step = UploadFilesSteps.UploadingConfirmed;
@@ -348,7 +348,7 @@ export class UploadFilesSceneBuilder {
 
       if (await this.uploadFile(request.file, ctx)) {
         this.dbStorageService.delete(requestId);
-      }
+      }*/
     });
 
     scene.action(/RejectUploading:/, async ctx => {
