@@ -1,4 +1,4 @@
-import {Injectable, OnModuleDestroy, OnModuleInit} from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import Agenda = require('agenda');
 import { SheetsService } from '../sheets/sheets.service';
 import { ConfigurationService } from '../config/configuration.service';
@@ -15,10 +15,10 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   ) {
     const jobsDbConfig = configService.appconfig.jobs.db;
     const url = util.format(
-        'mongodb://%s:%s@%s',
-        jobsDbConfig.username,
-        jobsDbConfig.password,
-        [`${jobsDbConfig.host}:${jobsDbConfig.port}`].join(','),
+      'mongodb://%s:%s@%s',
+      jobsDbConfig.username,
+      jobsDbConfig.password,
+      [`${jobsDbConfig.host}:${jobsDbConfig.port}`].join(','),
     );
     const options = {
       useNewUrlParser: true,

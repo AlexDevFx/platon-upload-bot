@@ -10,7 +10,7 @@ import { UploadedEquipmentStore } from '../../core/sheets/config/uploadedEquipme
 import { SheetsService } from '../../core/sheets/sheets.service';
 import { FileStorageService } from '../../core/sheets/filesStorage/file-storage.service';
 import { DbStorageService } from '../../core/dataStorage/dbStorage.service';
-import {JobsModule} from "./jobs.module";
+import { JobsModule } from './jobs.module';
 
 @Module({
   imports: [
@@ -18,7 +18,7 @@ import {JobsModule} from "./jobs.module";
       envFilePath: ['../config/.env.development', '../config/.env.production'],
     }),
     LoggerModule,
-    JobsModule,  
+    JobsModule,
     HttpModule.register({
       timeout: 30000,
     }),

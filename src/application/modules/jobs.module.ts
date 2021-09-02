@@ -6,8 +6,8 @@ import { SheetsService } from '../../core/sheets/sheets.service';
 import { ConfigurationService } from '../../core/config/configuration.service';
 
 @Module({
-    imports: [LoggerModule],
-    providers: [JobsService, SheetsService, ConfigurationService],
-    exports: [JobsService, SheetsService, ConfigurationService],
+  imports: [LoggerModule],
+  providers: [JobsService, SheetsService, ConfigurationService],
+  exports: [JobsService, SheetsService, ConfigurationService],
 })
 export class JobsModule {}
