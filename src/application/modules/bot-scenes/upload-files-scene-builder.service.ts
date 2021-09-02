@@ -50,6 +50,14 @@ class FileRequestData {
   }
 }
 
+interface ISheetUploadRecord {
+  maintenanceId: string;
+  equipmentName: string;
+  engineerPersonId: string;
+  confirmatorPersonId: string;
+  files: string[];
+}
+
 @Injectable()
 export class UploadFilesSceneBuilder {
   readonly SceneName: string = 'upload-files';
@@ -83,12 +91,12 @@ export class UploadFilesSceneBuilder {
     return month % 3 === 0 ? month / 3 : Math.floor(month / 3) + 1;
   }
 
-  private async uploadFile(file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<boolean> {
+  private async uploadFile(file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<string> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
 
     if (!file) {
       await ctx.reply('Нет загруженного файла');
-      return false;
+      return undefined;
     }
 
     const result = await this.createAndShareFolder(stepState.uploadingInfo.sskNumber, ctx);
@@ -99,7 +107,7 @@ export class UploadFilesSceneBuilder {
       stepState.uploadingInfo.folderUrl = result.fileUrl;
     }
 
-    return uploadResult !== undefined;
+    return uploadResult.fileUrl;
   }
 
   private async sendFileForUploading(requestId: string, file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<boolean> {
@@ -288,22 +296,62 @@ export class UploadFilesSceneBuilder {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return;
     }
-
-    const confirmedStatus = RequestStatus.Confirmed as number;
-    const filesForUploading = uploadingInfo.files?.filter(e => e.status === confirmedStatus);
+    
+    const filesForUploading = uploadingInfo.files?.filter(e => e.status === RequestStatus.Confirmed);
 
     if (!filesForUploading) {
       this.logger.error(`Не найдены данные файлов для загрузки: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return;
     }
 
+    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const recordsToAdd: ISheetUploadRecord[] = [];
+    
     for (let req of filesForUploading) {
-      if (req.status !== confirmedStatus) continue;
-      await this.uploadFile(req.file, ctx);
+      if (req.status !== RequestStatus.Confirmed) continue;
+      
+      let record = recordsToAdd[req.id];
+      if(!record){
+        record = {
+          maintenanceId: stepState.uploadingInfo.maintenanceId,
+          equipmentName: req.equipmentName,
+          engineerPersonId: stepState.user.person.id,
+          confirmatorPersonId: req.confirmatorId,
+          files: []
+        };
+      }
+      const fileUrl = await this.uploadFile(req.file, ctx);
+      if(fileUrl){
+        record.files.push(fileUrl);
+        recordsToAdd[req.id] = record;
+      }
+    }
+    const maintenanceUploadingSheet = this.configurationService.maintenanceUploadingSheet;
+    const rowForFillingIndex = await this.sheetsService.getNonEmptyRowIndex(maintenanceUploadingSheet);
+
+    if (rowForFillingIndex < maintenanceUploadingSheet.startRow) {
+      return;
     }
 
-    const stepState = ctx.scene.state as UploadFilesSceneState;
-    stepState.step = UploadFilesSteps.UploadingConfirmed;
+    const rows = [];
+    for(let r of recordsToAdd){
+      const rowData = [
+        r.maintenanceId,
+        r.equipmentName,
+        r.engineerPersonId,
+        r.confirmatorPersonId
+      ];
+      for(let f of r.files){
+        rowData.push(f)
+      }
+      rows.push(rowData);
+    }
+    
+    const cellsRange = maintenanceUploadingSheet.getRowsRange(maintenanceUploadingSheet.startColumnName, maintenanceUploadingSheet.photoEndColumn, rowForFillingIndex, rowForFillingIndex + rows.length);
+    let updateResult = await this.sheetsService.updateCellsValues(maintenanceUploadingSheet.spreadSheetId, cellsRange, rows, 'USER_ENTERED');
+    if(updateResult) {
+      stepState.step = UploadFilesSteps.UploadingConfirmed;
+    }
   }
 
   private async sendNextRequest(ctx: SceneContextMessageUpdate): Promise<void> {
@@ -441,7 +489,7 @@ export class UploadFilesSceneBuilder {
 
     scene.action(/confUpl:/, async ctx => {
       const stepState = ctx.scene.state as UploadFilesSceneState;
-
+      const person = await this.personsStore.getPersonByUserName(ctx.from.username);
       if (
         stepState.step === UploadFilesSteps.Enter ||
         stepState.step === UploadFilesSteps.Cancelled ||
@@ -475,6 +523,7 @@ export class UploadFilesSceneBuilder {
       }
 
       request.status = RequestStatus.Confirmed;
+      request.confirmatorId = person.id;
       await this.dbStorageService.update(uploadingInfo);
       if (uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed)) {
         await this.endRequestFilesForEquipment(sessionId, ctx);
@@ -509,7 +558,7 @@ export class UploadFilesSceneBuilder {
         return;
       }
 
-      request.setStatus(RequestStatus.Rejected);
+      request.status = RequestStatus.Rejected;
       await this.dbStorageService.update(uploadingInfo);
       const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
       stepState.requestsToSend.push(requestToSend);

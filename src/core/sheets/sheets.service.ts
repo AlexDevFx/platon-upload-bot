@@ -71,13 +71,13 @@ export class SheetsService {
     return undefined;
   }
 
-  public async updateCellsValues(sheetId: string, cellsRange: string, data: any[][]): Promise<boolean> {
+  public async updateCellsValues(sheetId: string, cellsRange: string, data: any[][], valueInputOption: string = 'RAW'): Promise<boolean> {
     try {
       const sheet = await this.getSheet();
       const response = await sheet.spreadsheets.values.update({
         spreadsheetId: sheetId,
         range: cellsRange,
-        valueInputOption: 'RAW',
+        valueInputOption: valueInputOption,
         requestBody: {
           values: data,
         },

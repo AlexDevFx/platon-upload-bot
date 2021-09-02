@@ -5,4 +5,5 @@ export class UserUploadingInfo extends Document {
   public readonly files: RequestedFile[];
   public readonly username: string;
   public readonly userId: number;
+  public readonly confirmatorId: string;
 }

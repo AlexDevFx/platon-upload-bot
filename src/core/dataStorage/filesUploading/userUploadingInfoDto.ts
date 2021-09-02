@@ -35,6 +35,7 @@ export class RequestedFile {
   public equipmentName: string;
   public status: number;
   public file: FileData;
+  public confirmatorId: string;
 
   constructor(id: string, equipmentId: string, equipmentName: string, file: FileData) {
     this.id = id;
@@ -42,10 +43,6 @@ export class RequestedFile {
     this.equipmentName = equipmentName;
     this.status = RequestStatus.Unknown as number;
     this.file = file;
-  }
-
-  public setStatus(newStatus: RequestStatus): void {
-    this.status = newStatus as number;
   }
 }
 

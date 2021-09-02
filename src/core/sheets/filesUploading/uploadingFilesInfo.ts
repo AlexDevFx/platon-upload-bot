@@ -19,6 +19,7 @@ export class RequestFile {
   public equipmentId: string;
   public equipmentName: string;
   public message: string;
+  public confirmatorId: string;
 
   constructor(id: string, equipmentId: string, equipmentName: string, message: string) {
     this.id = id;

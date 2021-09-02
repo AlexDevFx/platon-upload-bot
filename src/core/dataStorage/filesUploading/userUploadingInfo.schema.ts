@@ -5,6 +5,7 @@ export const UserUploadingSchema = new mongoose.Schema({
     {
       equipmentId: String,
       equipmentName: String,
+      confirmatorId: String,
       id: String,
       status: Number,
       file: {

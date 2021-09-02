@@ -36,6 +36,10 @@ export class SheetRange {
     return `${this.sheetName}!${startColumn}${row}:${endColumn}${row}`;
   }
 
+  public getRowsRange(startColumn: string, endColumn: string, startRow: number, endRow: number): string {
+    return `${this.sheetName}!${startColumn}${startRow}:${endColumn}${endRow}`;
+  }
+
   constructor(spreadSheetId: string, sheetName: string, startColumnName: string, endColumnName: string, startRow: number, endRow: number) {
     this.spreadSheetId = spreadSheetId;
     this.sheetName = sheetName;
