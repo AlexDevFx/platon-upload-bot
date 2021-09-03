@@ -5,6 +5,6 @@ import { BotModule } from './application/modules/bot.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   await app.select(BotModule);
-  await app.listen(3000);
+  await app.listen(4022);
 }
 bootstrap();
