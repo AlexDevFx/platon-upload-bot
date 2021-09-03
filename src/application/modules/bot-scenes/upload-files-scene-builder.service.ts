@@ -15,11 +15,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
 import { JobsService } from '../../../core/jobs/jobs.service';
 import { RequestedFile, RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
-import { IPerson, PersonsStore } from '../../../core/sheets/config/personsStore';
+import { IPerson, PersonsStore, UserRoles } from '../../../core/sheets/config/personsStore';
 import { SskEquipmentStore } from '../../../core/sheets/config/sskEquipmentStore';
 import moment = require('moment');
 import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
-import { UploadFilesSceneState, UploadFilesSteps, UploadQuadMaintenanceScene } from './UploadQuadMaintenanceScene';
+import { UploadFilesSceneState, UploadFilesSteps } from './UploadQuadMaintenanceScene';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
 
@@ -145,28 +145,6 @@ export class UploadFilesSceneBuilder {
     return result;
   }
 
-  private static buttonsFromArray(data: string[], action: string, initButton: CallbackButton): CallbackButton[][] {
-    if (data === undefined || data.length < 1) return undefined;
-
-    const buttons: CallbackButton[][] = [];
-    let rowIndex = 0;
-    buttons.push([]);
-
-    if (initButton !== undefined) {
-      buttons[rowIndex].push(initButton);
-    }
-
-    for (const d of data) {
-      if (buttons[rowIndex].length > 2) {
-        buttons.push([]);
-        rowIndex++;
-      }
-      buttons[rowIndex].push(Markup.callbackButton(`${d}`, `${action}:${d}`));
-    }
-
-    return buttons;
-  }
-
   private async createRequestsForFiles(ctx: SceneContextMessageUpdate): Promise<void> {
     const equipmentForUploading = await this.uploadedEquipmentStore.getData();
 
@@ -209,7 +187,7 @@ export class UploadFilesSceneBuilder {
     stepState.requestsToSend = [];
     let n = 0;
     for (let eq of equipmentForUploading) {
-      if (n > 1) break;
+      if (n > 3) break;
       if (eq.type === UploadingType.Undefined) continue;
 
       n++;
@@ -305,7 +283,7 @@ export class UploadFilesSceneBuilder {
     }
 
     const result = await this.jobsService.runUploadQuadMaintenanceFiles({
-      fromChatId: ctx.from.id,
+      fromChatId: ctx.chat.id,
       sessionId: sessionId,
       maintenanceId: stepState.uploadingInfo.maintenanceId,
       records: newRecords,
@@ -343,6 +321,7 @@ export class UploadFilesSceneBuilder {
     const stepState = ctx.scene.state as UploadFilesSceneState;
     const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
+      person?.role !== UserRoles.Admin ||
       stepState.step === UploadFilesSteps.Enter ||
       stepState.step === UploadFilesSteps.Cancelled ||
       stepState.step === UploadFilesSteps.UploadingConfirmed
@@ -388,8 +367,9 @@ export class UploadFilesSceneBuilder {
 
   private async rejectUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<void> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
-
+    const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
+      person?.role !== UserRoles.Admin ||
       stepState.step === UploadFilesSteps.Enter ||
       stepState.step === UploadFilesSteps.Cancelled ||
       stepState.step === UploadFilesSteps.UploadingConfirmed
@@ -553,89 +533,9 @@ export class UploadFilesSceneBuilder {
       );
     });
 
-    scene.action(/confUpl:/, async ctx => {
-      const stepState = ctx.scene.state as UploadFilesSceneState;
-      const person = await this.personsStore.getPersonByUserName(ctx.from.username);
-      if (
-        stepState.step === UploadFilesSteps.Enter ||
-        stepState.step === UploadFilesSteps.Cancelled ||
-        stepState.step === UploadFilesSteps.UploadingConfirmed
-      )
-        return;
-      const data = ctx.callbackQuery.data.split(':');
-      const sessionId = data[1];
-      const requestId = data[2];
-      if (!requestId) {
-        this.logger.error('Поле requestId пустое при подтверждении');
-        return;
-      }
+    scene.action(/confUpl:/, async ctx => {});
 
-      const uploadingInfo = await this.dbStorageService.findBy(sessionId);
-
-      if (!uploadingInfo) {
-        this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
-        return;
-      }
-
-      const request = uploadingInfo.files.find(e => e.id === requestId);
-
-      if (!request) {
-        this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
-        return;
-      }
-
-      if (request.status === RequestStatus.Confirmed) {
-        return;
-      }
-
-      request.status = RequestStatus.Confirmed;
-      request.confirmatorId = person.id;
-      await this.dbStorageService.update(uploadingInfo);
-
-      if (uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed)) {
-        await this.endRequestFilesForEquipment(sessionId, ctx);
-        await ctx.scene.leave();
-      }
-    });
-
-    scene.action(/rejUpl:/, async ctx => {
-      const stepState = ctx.scene.state as UploadFilesSceneState;
-
-      if (
-        stepState.step === UploadFilesSteps.Enter ||
-        stepState.step === UploadFilesSteps.Cancelled ||
-        stepState.step === UploadFilesSteps.UploadingConfirmed
-      )
-        return;
-
-      const data = ctx.callbackQuery.data.split(':');
-      const sessionId = data[1];
-      const requestId = data[2];
-      if (!requestId) {
-        this.logger.error('Поле requestId пустое при отклонении');
-        return;
-      }
-
-      const uploadingInfo = await this.dbStorageService.findBy(sessionId);
-
-      if (!uploadingInfo) {
-        this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
-        return;
-      }
-
-      const request = uploadingInfo.files.find(e => e.id === requestId);
-
-      if (!request) {
-        this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
-        return;
-      }
-
-      request.status = RequestStatus.Rejected;
-      await this.dbStorageService.update(uploadingInfo);
-      const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
-      stepState.requestsToSend.push(requestToSend);
-      await this.sendNextRequest(ctx);
-    });
+    scene.action(/rejUpl:/, async ctx => {});
 
     scene.on('document', async ctx => {
       const stepState = ctx.scene.state as UploadFilesSceneState;

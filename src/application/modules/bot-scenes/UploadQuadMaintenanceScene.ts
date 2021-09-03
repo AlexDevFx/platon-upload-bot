@@ -21,14 +21,3 @@ export interface UploadFilesSceneState {
   step: UploadFilesSteps;
   requestsToSend: RequestFile[];
 }
-
-export class UploadQuadMaintenanceScene extends BaseScene<SceneContextMessageUpdate> {
-  constructor(id: string, options?: Partial<BaseSceneOptions<SceneContextMessageUpdate>>) {
-    super(id, options);
-  }
-
-  public confirmUploadedFileRequest: (username: string, requestId: string) => Promise<void>;
-  public rejectUploadedFileRequest: (username: string, requestId: string) => Promise<void>;
-
-  public sceneState: UploadFilesSceneState;
-}
