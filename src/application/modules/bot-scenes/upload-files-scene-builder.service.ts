@@ -16,8 +16,8 @@ import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
 import { JobsService } from '../../../core/jobs/jobs.service';
 import { RequestedFile, RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
 import moment = require('moment');
-import {IPerson, PersonsStore} from "../../../core/sheets/config/personsStore";
-import {SskEquipmentStore} from "../../../core/sheets/config/sskEquipmentStore";
+import { IPerson, PersonsStore } from '../../../core/sheets/config/personsStore';
+import { SskEquipmentStore } from '../../../core/sheets/config/sskEquipmentStore';
 
 const { leave } = Stage;
 
@@ -32,7 +32,7 @@ enum UploadFilesSteps {
 interface UploadFilesSceneState {
   user: {
     telegramId: bigint;
-    person: IPerson,
+    person: IPerson;
   };
   sessionId: string;
   uploadingInfo: UploadingFilesInfo;
@@ -73,7 +73,7 @@ export class UploadFilesSceneBuilder {
     private readonly dbStorageService: DbStorageService,
     private readonly jobsService: JobsService,
     private readonly personsStore: PersonsStore,
-    private readonly sskEquipmentStore: SskEquipmentStore
+    private readonly sskEquipmentStore: SskEquipmentStore,
   ) {}
 
   private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
@@ -216,7 +216,7 @@ export class UploadFilesSceneBuilder {
     };
 
     const sskEquipments = (await this.sskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
-   
+
     const addedEquipments = [];
     stepState.uploadingInfo.requests = [];
     stepState.uploadingInfo.currentRequestIndex = 0;
@@ -286,7 +286,7 @@ export class UploadFilesSceneBuilder {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return;
     }
-    
+
     const filesForUploading = uploadingInfo.files?.filter(e => e.status === RequestStatus.Confirmed);
 
     if (!filesForUploading) {
@@ -296,22 +296,22 @@ export class UploadFilesSceneBuilder {
 
     const stepState = ctx.scene.state as UploadFilesSceneState;
     const recordsToAdd: ISheetUploadRecord[] = [];
-    
+
     for (let req of filesForUploading) {
       if (req.status !== RequestStatus.Confirmed) continue;
-      
+
       let record = recordsToAdd[req.id];
-      if(!record){
+      if (!record) {
         record = {
           maintenanceId: stepState.uploadingInfo.maintenanceId,
           equipmentName: req.equipmentName,
           engineerPersonId: stepState.user.person.id,
           confirmatorPersonId: req.confirmatorId,
-          files: []
+          files: [],
         };
       }
       const fileUrl = await this.uploadFile(req.file, ctx);
-      if(fileUrl){
+      if (fileUrl) {
         record.files.push(fileUrl);
         recordsToAdd[req.id] = record;
       }
@@ -324,23 +324,23 @@ export class UploadFilesSceneBuilder {
     }
 
     const rows = [[]];
-    for(let i = 0; i < recordsToAdd.length; i++){
+    for (let i = 0; i < recordsToAdd.length; i++) {
       const r = recordsToAdd[i];
-      const rowData = [
-        r.maintenanceId,
-        r.equipmentName,
-        r.engineerPersonId,
-        r.confirmatorPersonId
-      ];
-      for(let f of r.files){
-        rowData.push(f)
+      const rowData = [r.maintenanceId, r.equipmentName, r.engineerPersonId, r.confirmatorPersonId];
+      for (let f of r.files) {
+        rowData.push(f);
       }
       rows.push(rowData);
     }
-    
-    const cellsRange = maintenanceUploadingSheet.getRowsRange(maintenanceUploadingSheet.startColumnName, maintenanceUploadingSheet.photoEndColumn, rowForFillingIndex, rowForFillingIndex + rows.length);
+
+    const cellsRange = maintenanceUploadingSheet.getRowsRange(
+      maintenanceUploadingSheet.startColumnName,
+      maintenanceUploadingSheet.photoEndColumn,
+      rowForFillingIndex,
+      rowForFillingIndex + rows.length,
+    );
     let updateResult = await this.sheetsService.updateCellsValues(maintenanceUploadingSheet.spreadSheetId, cellsRange, rows, 'USER_ENTERED');
-    if(updateResult) {
+    if (updateResult) {
       stepState.step = UploadFilesSteps.UploadingConfirmed;
     }
   }
@@ -376,7 +376,7 @@ export class UploadFilesSceneBuilder {
       ctx.scene.state = {
         user: {
           telegramId: ctx.from.id,
-          person: person
+          person: person,
         },
         step: UploadFilesSteps.Enter,
         uploadingInfo: new UploadingFilesInfo(),
@@ -455,12 +455,14 @@ export class UploadFilesSceneBuilder {
     });
 
     scene.action('ConfirmId', async ctx => {
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅Да', 'ConfirmId')]]));
       const stepState = ctx.scene.state as UploadFilesSceneState;
       stepState.step = UploadFilesSteps.Uploading;
       await this.startRequestFilesForEquipment(ctx);
     });
 
     scene.action('RejectId', async ctx => {
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌Нет', 'RejectId')]]));
       await ctx.scene.reenter();
     });
 
@@ -495,6 +497,8 @@ export class UploadFilesSceneBuilder {
         return;
       }
 
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
+
       const uploadingInfo = await this.dbStorageService.findBy(sessionId);
 
       if (!uploadingInfo) {
@@ -525,7 +529,12 @@ export class UploadFilesSceneBuilder {
     scene.action(/rejUpl:/, async ctx => {
       const stepState = ctx.scene.state as UploadFilesSceneState;
 
-      if (stepState.step !== UploadFilesSteps.Uploading) return;
+      if (
+        stepState.step === UploadFilesSteps.Enter ||
+        stepState.step === UploadFilesSteps.Cancelled ||
+        stepState.step === UploadFilesSteps.UploadingConfirmed
+      )
+        return;
 
       const data = ctx.callbackQuery.data.split(':');
       const sessionId = data[1];
@@ -534,6 +543,8 @@ export class UploadFilesSceneBuilder {
         this.logger.error('Поле requestId пустое при отклонении');
         return;
       }
+
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
 
       const uploadingInfo = await this.dbStorageService.findBy(sessionId);
 

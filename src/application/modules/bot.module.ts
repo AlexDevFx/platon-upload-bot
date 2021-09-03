@@ -13,8 +13,8 @@ import { DbStorageService } from '../../core/dataStorage/dbStorage.service';
 import { JobsModule } from './jobs.module';
 import { DatabaseModule } from './database.module';
 import { userUploadingInfoProviders } from '../../core/dataStorage/filesUploading/userUploadingInfo.providers';
-import {PersonsStore} from "../../core/sheets/config/personsStore";
-import {SskEquipmentStore} from "../../core/sheets/config/sskEquipmentStore";
+import { PersonsStore } from '../../core/sheets/config/personsStore';
+import { SskEquipmentStore } from '../../core/sheets/config/sskEquipmentStore';
 
 @Module({
   imports: [

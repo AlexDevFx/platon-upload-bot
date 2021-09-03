@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { SheetsService } from '../sheets.service';
 import { ConfigurationService } from '../../config/configuration.service';
 import { ColumnParam, CompareType, FilterOptions } from '../filterOptions';
-import {CacheDataStore} from "./cachedDataStore";
+import { CacheDataStore } from './cachedDataStore';
 
 export interface IPhotoExample {
   url: string;
@@ -22,7 +22,7 @@ export interface IUploadedEquipment {
 }
 
 @Injectable()
-export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment>{
+export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment> {
   constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {
     super();
   }

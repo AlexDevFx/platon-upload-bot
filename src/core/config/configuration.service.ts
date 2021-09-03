@@ -4,7 +4,7 @@ import { Appconfig } from './appconfig';
 import { EquipmentSheet } from '../sheets/config/equipmentSheet';
 import { MaintenanceSheet } from '../sheets/config/maintenanceSheet';
 import { MaintenanceUploadingSheet } from '../sheets/config/maintenanceUploadingSheet';
-import {PersonsSheet} from "../sheets/config/personsSheet";
+import { PersonsSheet } from '../sheets/config/personsSheet';
 
 @Injectable()
 export class ConfigurationService {
