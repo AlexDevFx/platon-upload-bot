@@ -22,7 +22,7 @@ import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
 import { UploadFilesSceneState, UploadFilesSteps } from './UploadQuadMaintenanceScene';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
-import {firstValueFrom, take} from "rxjs";
+import { firstValueFrom, take } from 'rxjs';
 
 const { leave } = Stage;
 
@@ -167,19 +167,6 @@ export class UploadFilesSceneBuilder {
       await this.rejectUploadRequest(ctx, handleUploadRequest);
     });
 
-    const columnParams: ColumnParam[] = [];
-    const equipmentSheet = this.configurationService.equipmentSheet;
-
-    columnParams.push({
-      column: equipmentSheet.sskNumberColumn,
-      type: CompareType.Equal,
-      value: stepState.uploadingInfo.sskNumber,
-    });
-    const filterOptions: FilterOptions = {
-      params: columnParams,
-      range: equipmentSheet,
-    };
-
     const sskEquipments = (await this.sskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
 
     const addedEquipments = [];
@@ -188,7 +175,7 @@ export class UploadFilesSceneBuilder {
     stepState.requestsToSend = [];
     let n = 0;
     for (let eq of equipmentForUploading) {
-      if (n > 3) break;
+      // if (n > 3) break; for debugging
       if (eq.type === UploadingType.Undefined) continue;
 
       n++;
@@ -219,6 +206,7 @@ export class UploadFilesSceneBuilder {
           equipmentId,
           eq.name,
           `${message}${additionalInfo}${exml.description}`,
+          exml.url,
         );
         stepState.uploadingInfo.requests.push(requestFile);
         stepState.requestsToSend.push(requestFile);
@@ -307,6 +295,7 @@ export class UploadFilesSceneBuilder {
 
   private async sendNextRequestMessage(request: RequestFile, ctx: SceneContextMessageUpdate): Promise<void> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
+    await ctx.replyWithPhoto({ source: request.photoFile });
     await ctx.reply(
       request.message,
       Markup.inlineKeyboard([

@@ -20,11 +20,13 @@ export class RequestFile {
   public equipmentName: string;
   public message: string;
   public confirmatorId: string;
+  public photoFile: string;
 
-  constructor(id: string, equipmentId: string, equipmentName: string, message: string) {
+  constructor(id: string, equipmentId: string, equipmentName: string, message: string, photoFile: string) {
     this.id = id;
     this.equipmentId = equipmentId;
     this.equipmentName = equipmentName;
     this.message = message;
+    this.photoFile = photoFile;
   }
 }

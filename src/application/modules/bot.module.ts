@@ -69,7 +69,7 @@ export class BotModule {
     private readonly dbStorageService: DbStorageService,
     private readonly personsStore: PersonsStore,
     private readonly eventEmitter: EventEmitter2,
-    private readonly uploadedEquipmentStore: UploadedEquipmentStore
+    private readonly uploadedEquipmentStore: UploadedEquipmentStore,
   ) {
     this.init(process.env.BOT_TOKEN).then(async () => {
       this.logger.log('Bot has been started');
@@ -80,9 +80,9 @@ export class BotModule {
 
   private async init(botToken): Promise<void> {
     const startMessage = 'Hello From Bot!';
-    
+
     const getDataTask = this.uploadedEquipmentStore.getData();
-    
+
     this.bot = new Telegraf(botToken);
     this.bot.use(session());
 
