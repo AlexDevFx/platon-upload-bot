@@ -4,6 +4,7 @@ interface IMaintenanceUploadingSheet {
   idColumn: string;
   sskNumberColumn: string;
   equipmentNameColumn: string;
+  equipmentIdColumn: string;
   engineerIdColumn: string;
   confirmatoryIdColumn: string;
   photoStartColumn: string;
@@ -25,6 +26,7 @@ export class MaintenanceUploadingSheet extends SheetRange implements IMaintenanc
   idColumn: string;
   sskNumberColumn: string;
   equipmentNameColumn: string;
+  equipmentIdColumn: string;
   engineerIdColumn: string;
   confirmatoryIdColumn: string;
   photoStartColumn: string;
@@ -46,6 +48,7 @@ export class MaintenanceUploadingSheet extends SheetRange implements IMaintenanc
     this.idColumn = sheet.idColumn;
     this.sskNumberColumn = sheet.sskNumberColumn;
     this.equipmentNameColumn = sheet.equipmentNameColumn;
+    this.equipmentIdColumn = sheet.equipmentIdColumn;
     this.engineerIdColumn = sheet.engineerIdColumn;
     this.confirmatoryIdColumn = sheet.confirmatoryIdColumn;
     this.photoStartColumn = sheet.photoStartColumn;

@@ -17,4 +17,5 @@ export const UserUploadingSchema = new mongoose.Schema({
   ],
   username: String,
   userId: Number,
+  maintenanceId: String,
 });

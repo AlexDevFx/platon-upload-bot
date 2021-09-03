@@ -11,6 +11,7 @@ export class UserUploadingInfoDto {
   public files: RequestedFile[];
   public username: string;
   public userId: number;
+  public maintenanceId: string;
 }
 
 export class FileRequestData {

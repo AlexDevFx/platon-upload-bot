@@ -37,7 +37,6 @@ interface UploadFilesSceneState {
   sessionId: string;
   uploadingInfo: UploadingFilesInfo;
   step: UploadFilesSteps;
-  maintenanceId: number;
   requestsToSend: RequestFile[];
 }
 
@@ -52,8 +51,10 @@ class FileRequestData {
 }
 
 interface ISheetUploadRecord {
+  requestId: string;
   maintenanceId: string;
   equipmentName: string;
+  equipmentId: string;
   engineerPersonId: string;
   confirmatorPersonId: string;
   files: string[];
@@ -200,6 +201,7 @@ export class UploadFilesSceneBuilder {
       username: ctx.from.username,
       userId: ctx.from.id,
       files: [],
+      maintenanceId: stepState.uploadingInfo.maintenanceId
     });
 
     const columnParams: ColumnParam[] = [];
@@ -223,7 +225,7 @@ export class UploadFilesSceneBuilder {
     stepState.requestsToSend = [];
     let n = 0;
     for (let eq of equipmentForUploading) {
-      if (n > 1) break;
+      if (n > 3) break;
       if (eq.type === UploadingType.Undefined) continue;
 
       n++;
@@ -295,42 +297,94 @@ export class UploadFilesSceneBuilder {
     }
 
     const stepState = ctx.scene.state as UploadFilesSceneState;
-    const recordsToAdd: ISheetUploadRecord[] = [];
-
+    const newRecords: ISheetUploadRecord[] = [];
+       
     for (let req of filesForUploading) {
       if (req.status !== RequestStatus.Confirmed) continue;
-
-      let record = recordsToAdd[req.id];
-      if (!record) {
-        record = {
-          maintenanceId: stepState.uploadingInfo.maintenanceId,
-          equipmentName: req.equipmentName,
-          engineerPersonId: stepState.user.person.id,
-          confirmatorPersonId: req.confirmatorId,
-          files: [],
-        };
-      }
       const fileUrl = await this.uploadFile(req.file, ctx);
+      let record = newRecords.find(e => e.requestId === req.id);
+     
       if (fileUrl) {
-        record.files.push(fileUrl);
-        recordsToAdd[req.id] = record;
+        if (!record) {
+          record = {
+            requestId: req.id,
+            maintenanceId: stepState.uploadingInfo.maintenanceId,
+            equipmentName: req.equipmentName,
+            equipmentId: req.equipmentId,
+            engineerPersonId: stepState.user.person.id,
+            confirmatorPersonId: req.confirmatorId,
+            files: [fileUrl],
+          };
+          newRecords.push(record);
+        }
+        else
+          record.files.push(fileUrl);
       }
     }
+    
     const maintenanceUploadingSheet = this.configurationService.maintenanceUploadingSheet;
+    const columnParams: ColumnParam[] = [];
+
+    columnParams.push({
+      column: maintenanceUploadingSheet.idColumn,
+      type: CompareType.Equal,
+      value: uploadingInfo.maintenanceId,
+    });
+    const filterOptions: FilterOptions = {
+      params: columnParams,
+      range: maintenanceUploadingSheet,
+    };
+
+    const existedUploading = await this.sheetsService.getFilteredRows(filterOptions);
     const rowForFillingIndex = await this.sheetsService.getNonEmptyRowIndex(maintenanceUploadingSheet);
 
     if (rowForFillingIndex < maintenanceUploadingSheet.startRow) {
       return;
     }
-
-    const rows = [[]];
-    for (let i = 0; i < recordsToAdd.length; i++) {
-      const r = recordsToAdd[i];
-      const rowData = [r.maintenanceId, r.equipmentName, r.engineerPersonId, r.confirmatorPersonId];
-      for (let f of r.files) {
-        rowData.push(f);
+    
+    const equipmentIdColumnIndex = maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentIdColumn);
+    const photoStartColumnIndex = maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.photoStartColumn);
+    const photoEndColumnIndex = maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.photoEndColumn);
+    let rowIndexToAdd = rowForFillingIndex;
+    
+    const rows = [];
+    
+    for (let i = 0; i < newRecords.length; i++) {
+      const r = newRecords[i];
+      const existedRecord = existedUploading.find(e => e.values[equipmentIdColumnIndex] === r.equipmentId);
+      
+      if(existedRecord){
+        let fileIndex = 0;
+        const cellsToFill = [];
+        const range = maintenanceUploadingSheet.getRange(maintenanceUploadingSheet.photoStartColumn, maintenanceUploadingSheet.photoEndColumn, existedRecord.index);
+        for(let j = photoStartColumnIndex; j < photoEndColumnIndex; j++){
+          if(!existedRecord.values[j] || existedRecord.values[j] === '' && fileIndex < r.files.length){
+            cellsToFill.push(r.files[fileIndex]);
+            fileIndex++;
+          }else{
+            cellsToFill.push(existedRecord.values[j]);
+          }
+        }
+        rows.push({
+          range: range,
+          majorDimension: 'ROWS',
+          values: [cellsToFill]
+        });
       }
-      rows.push(rowData);
+      else{
+        const rowData = [r.maintenanceId, r.equipmentName, r.equipmentId, r.engineerPersonId, r.confirmatorPersonId];
+        for (let f of r.files) {
+          rowData.push(f);
+        }
+
+        const range = maintenanceUploadingSheet.getRange(maintenanceUploadingSheet.idColumn, maintenanceUploadingSheet.photoEndColumn, rowIndexToAdd);
+        rows.push({
+          range: range,
+          majorDimension: 'ROWS',
+          values: [rowData]
+        })
+        rowIndexToAdd++;
+      }
     }
 
     const cellsRange = maintenanceUploadingSheet.getRowsRange(
@@ -339,7 +393,7 @@ export class UploadFilesSceneBuilder {
       rowForFillingIndex,
       rowForFillingIndex + rows.length,
     );
-    let updateResult = await this.sheetsService.updateCellsValues(maintenanceUploadingSheet.spreadSheetId, cellsRange, rows, 'USER_ENTERED');
+    let updateResult = await this.sheetsService.updateBatchCellsValues(maintenanceUploadingSheet.spreadSheetId, rows,'USER_ENTERED');
     if (updateResult) {
       stepState.step = UploadFilesSteps.UploadingConfirmed;
     }
@@ -360,8 +414,8 @@ export class UploadFilesSceneBuilder {
     await ctx.reply(
       request.message,
       Markup.inlineKeyboard([
-        Markup.callbackButton('✅ Принято', 'confUpl:' + stepState.sessionId + ':' + request.id),
-        Markup.callbackButton('❌ Отклонено', 'rejUpl:' + stepState.sessionId + ':' + request.id),
+        Markup.callbackButton('✅ Принять', 'confUpl:' + stepState.sessionId + ':' + request.id),
+        Markup.callbackButton('❌ Отклонить', 'rejUpl:' + stepState.sessionId + ':' + request.id),
       ]).extra({ parse_mode: 'HTML' }),
     );
 
@@ -442,7 +496,7 @@ export class UploadFilesSceneBuilder {
           const dateIndex = maintenanceSheet.getColumnIndex(maintenanceSheet.maintenanceDateColumn);
           await ctx.reply(
             `Вы хотите загрузить фото для Квартального ТО для ССК-<b>${sskNumber}</b>.` + ` Дата проведения <b>${foundRow.values[dateIndex]}</b>`,
-            Markup.inlineKeyboard([Markup.callbackButton('✅Да', 'ConfirmId'), Markup.callbackButton('❌Нет', 'RejectId')]).extra({
+            Markup.inlineKeyboard([Markup.callbackButton('✅ Да', 'ConfirmId'), Markup.callbackButton('❌ Нет', 'RejectId')]).extra({
               parse_mode: 'HTML',
             }),
           );
@@ -455,14 +509,14 @@ export class UploadFilesSceneBuilder {
     });
 
     scene.action('ConfirmId', async ctx => {
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅Да', 'ConfirmId')]]));
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Да', 'ConfirmId')]]));
       const stepState = ctx.scene.state as UploadFilesSceneState;
       stepState.step = UploadFilesSteps.Uploading;
       await this.startRequestFilesForEquipment(ctx);
     });
 
     scene.action('RejectId', async ctx => {
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌Нет', 'RejectId')]]));
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Нет', 'RejectId')]]));
       await ctx.scene.reenter();
     });
 
@@ -472,6 +526,14 @@ export class UploadFilesSceneBuilder {
 
     scene.command('cancel', async ctx => {
       await this.cancelCommand(ctx);
+    });
+
+    scene.command('quad', async ctx => {
+      await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
+    });
+
+    scene.command('year', async ctx => {
+      await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
     });
 
     scene.on('photo', async ctx => {

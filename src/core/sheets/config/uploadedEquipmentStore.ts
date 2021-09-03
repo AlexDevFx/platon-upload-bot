@@ -25,6 +25,7 @@ export interface IUploadedEquipment {
 export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment> {
   constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {
     super();
+    this.updateTimeOut = 7200000;
   }
 
   protected async loadData(): Promise<void> {

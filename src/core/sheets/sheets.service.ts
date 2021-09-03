@@ -89,14 +89,14 @@ export class SheetsService {
     return false;
   }
 
-  public async updateBatchCellsValues(sheetId: string, rangesData: any[]): Promise<boolean> {
+  public async updateBatchCellsValues(sheetId: string, rangesData: any[], valueInputOption: string = 'RAW'): Promise<boolean> {
     try {
       const sheet = await this.getSheet();
       const response = await sheet.spreadsheets.values.batchUpdate({
         spreadsheetId: sheetId,
         requestBody: {
           data: rangesData,
-          valueInputOption: 'RAW',
+          valueInputOption: valueInputOption,
         },
       });
       return response.status === 200;
