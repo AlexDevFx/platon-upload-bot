@@ -22,6 +22,7 @@ import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
 import { UploadFilesSceneState, UploadFilesSteps } from './UploadQuadMaintenanceScene';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
+import {firstValueFrom, take} from "rxjs";
 
 const { leave } = Stage;
 
@@ -55,8 +56,8 @@ export class UploadFilesSceneBuilder {
 
   private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
     const writer = fs.createWriteStream(filePathToSave);
-    const response = await this.httpService.get(fileUrl, { responseType: 'stream' }).toPromise();
-
+    const source = this.httpService.get(fileUrl, { responseType: 'stream' }).pipe(take(1));
+    const response = await firstValueFrom(source);
     response.data.pipe(writer);
 
     return new Promise((resolve, reject) => {

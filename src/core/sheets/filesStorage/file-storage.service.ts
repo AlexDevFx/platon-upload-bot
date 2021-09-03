@@ -61,6 +61,28 @@ export class FileStorageService {
     };
   }
 
+  public async download(fileId: string, pathForSave: string): Promise<string> {
+    const drive = await this.getStorageClient();
+    const file = await drive.files.get({
+      fileId: fileId,
+    });
+    return (await new Promise( (resolve, reject) => {
+      const dest = fs.createWriteStream(pathForSave);
+      const obj = this;
+      drive.files.get({
+        fileId: fileId
+      })
+          .on('end', function (response) {
+            resolve(pathForSave);
+          })
+          .on('error', function (err) {
+            obj.logger.error('Error during download', err);
+            reject()
+          })
+          .pipe(dest);
+    }));
+  }
+
   public async getOrCreateFolder(folderName, parentId, onProgressFunction): Promise<IUploadResult> {
     const drive = await this.getStorageClient();
     let pageToken = null;

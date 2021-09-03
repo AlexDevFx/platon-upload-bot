@@ -3,6 +3,7 @@ import { SheetsService } from '../sheets.service';
 import { ConfigurationService } from '../../config/configuration.service';
 import { ColumnParam, CompareType, FilterOptions } from '../filterOptions';
 import { CacheDataStore } from './cachedDataStore';
+import {FileStorageService} from "../filesStorage/file-storage.service";
 
 export interface IPhotoExample {
   url: string;
@@ -23,7 +24,9 @@ export interface IUploadedEquipment {
 
 @Injectable()
 export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment> {
-  constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {
+  constructor(private readonly sheetsService: SheetsService, 
+              private readonly configurationService: ConfigurationService,
+              private readonly fileStorageService: FileStorageService) {
     super();
     this.updateTimeOut = 7200000;
   }
@@ -43,7 +46,7 @@ export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment> {
     };
 
     const rows = await this.sheetsService.getFilteredRows(filterOptions);
-
+    const searchfileId = /d\/\w+\/view/g;
     if (rows) {
       const uploadedEquipment: IUploadedEquipment[] = [];
       for (let r of rows) {
@@ -53,7 +56,14 @@ export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment> {
         const endPhotoIndex = startPhotoIndex + maintenanceUploadingSheet.equipmentPhotosCount * 2;
         const examples = [];
         for (let i = startPhotoIndex; i < endPhotoIndex; i += 2) {
+          
           if (r.values[i] && /^https:\/\/drive/g.test(r.values[i])) {
+            const fileId = searchfileId.exec(r.values[i])[0]?.split('/')[1];
+            let filePath = r.values[i];
+            if(fileId){
+              filePath = await this.fileStorageService.download(r.values[i], `${fileId}`);
+            }
+            
             examples.push({
               url: r.values[i],
               description: r.values[i + 1],
