@@ -553,8 +553,6 @@ export class UploadFilesSceneBuilder {
         return;
       }
 
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
-
       const uploadingInfo = await this.dbStorageService.findBy(sessionId);
 
       if (!uploadingInfo) {
@@ -576,6 +574,9 @@ export class UploadFilesSceneBuilder {
       request.status = RequestStatus.Confirmed;
       request.confirmatorId = person.id;
       await this.dbStorageService.update(uploadingInfo);
+
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
+      
       if (uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed)) {
         await this.endRequestFilesForEquipment(sessionId, ctx);
         leave();
@@ -600,8 +601,6 @@ export class UploadFilesSceneBuilder {
         return;
       }
 
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
-
       const uploadingInfo = await this.dbStorageService.findBy(sessionId);
 
       if (!uploadingInfo) {
@@ -621,6 +620,8 @@ export class UploadFilesSceneBuilder {
       const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
       stepState.requestsToSend.push(requestToSend);
       await this.sendNextRequest(ctx);
+
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
     });
 
     scene.on('document', async ctx => {

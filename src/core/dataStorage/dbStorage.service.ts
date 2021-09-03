@@ -16,11 +16,6 @@ export class DbStorageService {
     return userUploadingInfo._id.toString();
   }
 
-  public async find(id: string): Promise<UserUploadingInfo> {
-    //const data = await this.uploadingInfoModel.findOne({ id: id }).exec();
-    return new UserUploadingInfo(); //data;
-  }
-
   public async findBy(id: string): Promise<UserUploadingInfo> {
     return await this.uploadingInfoModel.findById(id).exec();
   }
@@ -32,7 +27,7 @@ export class DbStorageService {
   }
 
   public async delete(id: string): Promise<boolean> {
-    //const result = await this.uploadingInfoModel.deleteOne({ id: id }).exec();
-    return true; // result.deletedCount > 0;
+    const result = await this.uploadingInfoModel.deleteOne({ id: id }).exec();
+    return result.deletedCount > 0;
   }
 }
