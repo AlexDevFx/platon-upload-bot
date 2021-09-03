@@ -1,0 +1,1 @@
+forever start --sourceDir d:\apps\platon-upload-bot\dist --spinSleepTime 10000 main.js >> ./app.log 2>&1
