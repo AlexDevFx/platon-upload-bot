@@ -15,30 +15,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
 import { JobsService } from '../../../core/jobs/jobs.service';
 import { RequestedFile, RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
-import moment = require('moment');
 import { IPerson, PersonsStore } from '../../../core/sheets/config/personsStore';
 import { SskEquipmentStore } from '../../../core/sheets/config/sskEquipmentStore';
+import moment = require('moment');
+import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
+import { UploadFilesSceneState, UploadFilesSteps, UploadQuadMaintenanceScene } from './UploadQuadMaintenanceScene';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
 
 const { leave } = Stage;
-
-enum UploadFilesSteps {
-  Cancelled = -1,
-  Enter,
-  Uploading,
-  UploadingConfirmed,
-  Completed,
-}
-
-interface UploadFilesSceneState {
-  user: {
-    telegramId: bigint;
-    person: IPerson;
-  };
-  sessionId: string;
-  uploadingInfo: UploadingFilesInfo;
-  step: UploadFilesSteps;
-  requestsToSend: RequestFile[];
-}
 
 class FileRequestData {
   public id: string;
@@ -48,16 +33,6 @@ class FileRequestData {
     this.id = id;
     this.file = file;
   }
-}
-
-interface ISheetUploadRecord {
-  requestId: string;
-  maintenanceId: string;
-  equipmentName: string;
-  equipmentId: string;
-  engineerPersonId: string;
-  confirmatorPersonId: string;
-  files: string[];
 }
 
 @Injectable()
@@ -75,6 +50,7 @@ export class UploadFilesSceneBuilder {
     private readonly jobsService: JobsService,
     private readonly personsStore: PersonsStore,
     private readonly sskEquipmentStore: SskEquipmentStore,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
@@ -201,7 +177,15 @@ export class UploadFilesSceneBuilder {
       username: ctx.from.username,
       userId: ctx.from.id,
       files: [],
-      maintenanceId: stepState.uploadingInfo.maintenanceId
+      maintenanceId: stepState.uploadingInfo.maintenanceId,
+    });
+
+    this.eventEmitter.on('confUpl:' + stepState.sessionId, async (handleUploadRequest: IAdminHandleUploadRequest) => {
+      await this.confirmUploadRequest(ctx, handleUploadRequest);
+    });
+
+    this.eventEmitter.on('rejUpl:' + stepState.sessionId, async (handleUploadRequest: IAdminHandleUploadRequest) => {
+      await this.rejectUploadRequest(ctx, handleUploadRequest);
     });
 
     const columnParams: ColumnParam[] = [];
@@ -225,7 +209,7 @@ export class UploadFilesSceneBuilder {
     stepState.requestsToSend = [];
     let n = 0;
     for (let eq of equipmentForUploading) {
-      if (n > 3) break;
+      if (n > 1) break;
       if (eq.type === UploadingType.Undefined) continue;
 
       n++;
@@ -298,12 +282,12 @@ export class UploadFilesSceneBuilder {
 
     const stepState = ctx.scene.state as UploadFilesSceneState;
     const newRecords: ISheetUploadRecord[] = [];
-       
+
     for (let req of filesForUploading) {
       if (req.status !== RequestStatus.Confirmed) continue;
       const fileUrl = await this.uploadFile(req.file, ctx);
       let record = newRecords.find(e => e.requestId === req.id);
-     
+
       if (fileUrl) {
         if (!record) {
           record = {
@@ -316,80 +300,19 @@ export class UploadFilesSceneBuilder {
             files: [fileUrl],
           };
           newRecords.push(record);
-        }
-        else
-          record.files.push(fileUrl);
+        } else record.files.push(fileUrl);
       }
     }
-    
-    const maintenanceUploadingSheet = this.configurationService.maintenanceUploadingSheet;
-    const columnParams: ColumnParam[] = [];
 
-    columnParams.push({
-      column: maintenanceUploadingSheet.idColumn,
-      type: CompareType.Equal,
-      value: uploadingInfo.maintenanceId,
+    const result = await this.jobsService.runUploadQuadMaintenanceFiles({
+      fromChatId: ctx.from.id,
+      sessionId: sessionId,
+      maintenanceId: stepState.uploadingInfo.maintenanceId,
+      records: newRecords,
     });
-    const filterOptions: FilterOptions = {
-      params: columnParams,
-      range: maintenanceUploadingSheet,
-    };
 
-    const existedUploading = await this.sheetsService.getFilteredRows(filterOptions);
-    const rowForFillingIndex = await this.sheetsService.getNonEmptyRowIndex(maintenanceUploadingSheet);
-
-    if (rowForFillingIndex < maintenanceUploadingSheet.startRow) {
-      return;
-    }
-    
-    const equipmentIdColumnIndex = maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentIdColumn);
-    const photoStartColumnIndex = maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.photoStartColumn);
-    const photoEndColumnIndex = maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.photoEndColumn);
-    let rowIndexToAdd = rowForFillingIndex;
-    
-    const rows = [];
-    
-    for (let i = 0; i < newRecords.length; i++) {
-      const r = newRecords[i];
-      const existedRecord = existedUploading.find(e => e.values[equipmentIdColumnIndex] === r.equipmentId);
-      
-      if(existedRecord){
-        let fileIndex = 0;
-        const cellsToFill = [];
-        const range = maintenanceUploadingSheet.getRange(maintenanceUploadingSheet.photoStartColumn, maintenanceUploadingSheet.photoEndColumn, existedRecord.index);
-        for(let j = photoStartColumnIndex; j < photoEndColumnIndex; j++){
-          if(!existedRecord.values[j] || existedRecord.values[j] === '' && fileIndex < r.files.length){
-            cellsToFill.push(r.files[fileIndex]);
-            fileIndex++;
-          }else{
-            cellsToFill.push(existedRecord.values[j]);
-          }
-        }
-        rows.push({
-          range: range,
-          majorDimension: 'ROWS',
-          values: [cellsToFill]
-        });
-      }
-      else{
-        const rowData = [r.maintenanceId, r.equipmentName, r.equipmentId, r.engineerPersonId, r.confirmatorPersonId];
-        for (let f of r.files) {
-          rowData.push(f);
-        }
-
-        const range = maintenanceUploadingSheet.getRange(maintenanceUploadingSheet.idColumn, maintenanceUploadingSheet.photoEndColumn, rowIndexToAdd);
-        rows.push({
-          range: range,
-          majorDimension: 'ROWS',
-          values: [rowData]
-        })
-        rowIndexToAdd++;
-      }
-    }
-    let updateResult = await this.sheetsService.updateBatchCellsValues(maintenanceUploadingSheet.spreadSheetId, rows,'USER_ENTERED');
-    if (updateResult) {
+    if (result) {
       stepState.step = UploadFilesSteps.UploadingConfirmed;
-      await this.dbStorageService.delete(sessionId);
     }
   }
 
@@ -416,6 +339,93 @@ export class UploadFilesSceneBuilder {
     stepState.uploadingInfo.currentRequestId = request.id;
   }
 
+  private async confirmUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<void> {
+    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
+    if (
+      stepState.step === UploadFilesSteps.Enter ||
+      stepState.step === UploadFilesSteps.Cancelled ||
+      stepState.step === UploadFilesSteps.UploadingConfirmed
+    )
+      return;
+
+    const sessionId = handleUploadRequest.sessionId;
+    const requestId = handleUploadRequest.requestId;
+    if (!requestId) {
+      this.logger.error('Поле requestId пустое при подтверждении');
+      return;
+    }
+
+    const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+
+    if (!uploadingInfo) {
+      this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+      return;
+    }
+
+    const request = uploadingInfo.files.find(e => e.id === requestId);
+
+    if (!request) {
+      this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+      return;
+    }
+
+    if (request.status === RequestStatus.Confirmed) {
+      return;
+    }
+
+    request.status = RequestStatus.Confirmed;
+    request.confirmatorId = person.id;
+    await this.dbStorageService.update(uploadingInfo);
+
+    this.eventEmitter.emit(`confUplResult:${handleUploadRequest.messageId}`);
+
+    if (uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed)) {
+      await this.endRequestFilesForEquipment(sessionId, ctx);
+      await ctx.scene.leave();
+    }
+  }
+
+  private async rejectUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<void> {
+    const stepState = ctx.scene.state as UploadFilesSceneState;
+
+    if (
+      stepState.step === UploadFilesSteps.Enter ||
+      stepState.step === UploadFilesSteps.Cancelled ||
+      stepState.step === UploadFilesSteps.UploadingConfirmed
+    )
+      return;
+
+    const sessionId = handleUploadRequest.sessionId;
+    const requestId = handleUploadRequest.requestId;
+    if (!requestId) {
+      this.logger.error('Поле requestId пустое при отклонении');
+      return;
+    }
+
+    const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+
+    if (!uploadingInfo) {
+      this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+      return;
+    }
+
+    const request = uploadingInfo.files.find(e => e.id === requestId);
+
+    if (!request) {
+      this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+      return;
+    }
+
+    request.status = RequestStatus.Rejected;
+    await this.dbStorageService.update(uploadingInfo);
+    const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
+    stepState.requestsToSend.push(requestToSend);
+    await this.sendNextRequest(ctx);
+
+    this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
+  }
+
   public build(): BaseScene<SceneContextMessageUpdate> {
     const scene = new BaseScene(this.SceneName);
 
@@ -428,6 +438,8 @@ export class UploadFilesSceneBuilder {
         },
         step: UploadFilesSteps.Enter,
         uploadingInfo: new UploadingFilesInfo(),
+        sessionId: '',
+        requestsToSend: [],
       };
       await ctx.reply(
         'Введите <b>номер (ид)</b> квартального ТО для загрузки фото',
@@ -523,7 +535,12 @@ export class UploadFilesSceneBuilder {
     });
 
     scene.command('quad', async ctx => {
-      await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
+      const stepState = ctx.scene.state as UploadFilesSceneState;
+      if (stepState.step === UploadFilesSteps.UploadingConfirmed || stepState.step === UploadFilesSteps.Cancelled) {
+        await ctx.scene.reenter();
+      } else {
+        await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
+      }
     });
 
     scene.command('year', async ctx => {
@@ -575,11 +592,9 @@ export class UploadFilesSceneBuilder {
       request.confirmatorId = person.id;
       await this.dbStorageService.update(uploadingInfo);
 
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
-      
       if (uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed)) {
         await this.endRequestFilesForEquipment(sessionId, ctx);
-        leave();
+        await ctx.scene.leave();
       }
     });
 
@@ -620,8 +635,6 @@ export class UploadFilesSceneBuilder {
       const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
       stepState.requestsToSend.push(requestToSend);
       await this.sendNextRequest(ctx);
-
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
     });
 
     scene.on('document', async ctx => {

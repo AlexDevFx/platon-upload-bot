@@ -58,11 +58,18 @@ export class PersonsStore extends CacheDataStore<IPerson> {
         });
       }
       newData.push({
-        id: '999',
+        id: '99999',
         role: UserRoles.Engineer,
         fullName: '',
         telegramUsername: 'alexey_lp',
       });
+      newData.push({
+        id: '77777',
+        role: UserRoles.Admin,
+        fullName: '',
+        telegramUsername: 'RocketBountySales',
+      });
+
       this.data = newData;
     }
   }

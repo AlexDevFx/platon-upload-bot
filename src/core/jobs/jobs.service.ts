@@ -2,12 +2,21 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { SheetsService } from '../sheets/sheets.service';
 import { ConfigurationService } from '../config/configuration.service';
 import { LoggerService } from 'nest-logger';
-import { CompareType, FilterOptions } from '../sheets/filterOptions';
 import * as util from 'util';
 import { Agenda } from 'agenda';
+import { Telegraf } from 'telegraf';
+import { TelegrafContext } from 'telegraf/typings/context';
+import { IUploadMaintenanceParams } from './iupload-maintenance.params';
+
+export interface MessageData {
+  chatId: number;
+  message: string;
+}
 
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
+  private bot: Telegraf<TelegrafContext>;
+
   constructor(
     private readonly sheetsService: SheetsService,
     private readonly configService: ConfigurationService,
@@ -28,69 +37,26 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       tlsCAFile: jobsDbConfig.tlsCAFile,
     };
 
-    this.agenda = new Agenda({ db: { address: url, collection: 'accounting-jobs', options: options }, processEvery: '5 seconds' });
+    this.agenda = new Agenda({ db: { address: url, collection: 'platon-upload-jobs', options: options }, processEvery: '5 seconds' });
     logger.info('Agenda has been initialized.');
-    this.defineJobs();
   }
 
   agenda: Agenda;
   private repeatNewRowJobPeriodSeconds: number = 5;
 
+  public init(bot: Telegraf<TelegrafContext>): void {
+    this.bot = bot;
+    this.defineJobs();
+  }
+
+  public async runUploadQuadMaintenanceFiles(params: IUploadMaintenanceParams): Promise<boolean> {
+    return (await this.agenda.now('uploadQuadMaintenanceFiles', params)) !== undefined;
+  }
+
   private defineJobs() {
-    this.agenda.define('addAccountingRecord', async (job, done) => {
-      /*const accountingSheet = this.configService.accountingSheet;
-      const newRecord = job.attrs.data as NewAccontingRecord;
-      const rowForFillingIndex = await this.sheetsService.getNonEmptyRowIndex(accountingSheet);
-
-      if (rowForFillingIndex < accountingSheet.startRow) {
-        await this.agenda.now('sendMessageToLog', {
-          message: 'Не найдена подходящая строка для заполнения',
-        });
-        await this.agenda.schedule('in 30 seconds', 'addAccountingRecord', newRecord);
-        done();
-        return;
-      }
-
-      const cellsRange = accountingSheet.getRange(accountingSheet.startColumnName, accountingSheet.endColumnName, rowForFillingIndex);
-      let updateResult = await this.sheetsService.updateCellsValues(accountingSheet.spreadSheetId, cellsRange, [
-        [
-          newRecord.date,
-          newRecord.sourceAccountName,
-          newRecord.destinationAccountName,
-          newRecord.amount,
-          newRecord.comments,
-          newRecord.projectName,
-          newRecord.reason,
-          newRecord.subType1,
-          newRecord.subType2,
-          newRecord.subType3,
-          newRecord.screenshotUrl,
-          newRecord.authorFullName,
-          newRecord.authorLogin,
-          newRecord.authorTelegramId,
-        ],
-      ],'USER_ENTERED');
-
-      if (updateResult) {
-        const filterOptions: FilterOptions = {
-          range: accountingSheet,
-          params: [
-            { column: accountingSheet.projectNameColumn, type: CompareType.IsNotEmpty, value: newRecord.date },
-          ],
-        };
-        const insertedRow = (await this.sheetsService.getSheetValues(accountingSheet.spreadSheetId, cellsRange))[0];
-
-        updateResult = insertedRow !== undefined && insertedRow[accountingSheet.projectNameColumnIndex] === newRecord.projectName && insertedRow[accountingSheet.reasonColumnIndex] === newRecord.reason;
-      }
-
-      if (!updateResult) {
-        await this.agenda.schedule(`in ${this.repeatNewRowJobPeriodSeconds} seconds`, 'addAccountingRecord', newRecord);
-      }else{
-        await this.agenda.now('accountingSendHtmlMessageToChat', {
-          chatId: newRecord.fromChatId,
-          message: 'Данные введены'
-        });
-      }*/
+    this.agenda.define('uploadBotSendHtmlMessageToChat', async (job, done) => {
+      const messageData = job.attrs.data as MessageData;
+      await this.bot.telegram.sendMessage(messageData.chatId, messageData.message, { parse_mode: 'HTML' });
       done();
     });
 
@@ -100,23 +66,6 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     await this.agenda.start();
     this.logger.info('Agenda has been started');
-    /*const newRecord: NewAccontingRecord = {
-      date: '23.10.2020 14:10:32',
-      sourceAccountName: 'Сема Точка',
-      destinationAccountName: 'ООО Клевер Точка',
-      amount: '321 540,56',
-      comments: 'Тест бота',
-      projectName: '',
-      reason: '',
-      subType1: '',
-      subType2: '',
-      subType3: '',
-      screenshotUrl: '',
-      authorFullName: '',
-      authorLogin: '',
-      authorTelegramId: 12321321,
-    };
-    await this.agenda.now('addAccountingRecord', newRecord);*/
   }
 
   async onModuleDestroy() {

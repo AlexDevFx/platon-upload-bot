@@ -1,4 +1,4 @@
-import { Telegraf, session, Stage } from 'telegraf';
+import { Telegraf, session, Stage, Markup } from 'telegraf';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerService } from 'nest-logger';
@@ -15,6 +15,11 @@ import { DatabaseModule } from './database.module';
 import { userUploadingInfoProviders } from '../../core/dataStorage/filesUploading/userUploadingInfo.providers';
 import { PersonsStore } from '../../core/sheets/config/personsStore';
 import { SskEquipmentStore } from '../../core/sheets/config/sskEquipmentStore';
+import { JobsService } from '../../core/jobs/jobs.service';
+import { UploadFilesSceneState, UploadFilesSteps } from './bot-scenes/UploadQuadMaintenanceScene';
+import { RequestStatus } from '../../core/dataStorage/filesUploading/userUploadingInfoDto';
+import { EventEmitter2, EventEmitterModule } from '@nestjs/event-emitter';
+import { IAdminHandleUploadRequest } from '../../core/event/adminHandleUploadRequest';
 
 @Module({
   imports: [
@@ -26,6 +31,22 @@ import { SskEquipmentStore } from '../../core/sheets/config/sskEquipmentStore';
     DatabaseModule,
     HttpModule.register({
       timeout: 30000,
+    }),
+    EventEmitterModule.forRoot({
+      // set this to `true` to use wildcards
+      wildcard: false,
+      // the delimiter used to segment namespaces
+      delimiter: '.',
+      // set this to `true` if you want to emit the newListener event
+      newListener: false,
+      // set this to `true` if you want to emit the removeListener event
+      removeListener: false,
+      // the maximum amount of listeners that can be assigned to an event
+      maxListeners: 10,
+      // show event name in memory leak message when more than maximum amount of listeners is assigned
+      verboseMemoryLeak: false,
+      // disable throwing uncaughtException if an error event is emitted and it has no listeners
+      ignoreErrors: false,
     }),
   ],
   providers: [
@@ -44,7 +65,10 @@ export class BotModule {
   constructor(
     private readonly uploadFilesSceneBuilder: UploadFilesSceneBuilder,
     private readonly logger: LoggerService,
-    private readonly configurationService: ConfigurationService,
+    private readonly jobsService: JobsService,
+    private readonly dbStorageService: DbStorageService,
+    private readonly personsStore: PersonsStore,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     this.init(process.env.BOT_TOKEN).then(async () => {
       this.logger.log('Bot has been started');
@@ -71,10 +95,48 @@ export class BotModule {
       await ctx.scene.enter(this.uploadFilesSceneBuilder.SceneName);
     });
 
+    this.bot.action(/confUpl:/, async (ctx, next) => {
+      if (ctx.updateType === 'callback_query' && ctx.update?.callback_query?.data) {
+        const data = ctx.update.callback_query.data.split(':');
+        const sessionId = data[1];
+        const requestId = data[2];
+        this.eventEmitter.emit('confUpl:' + sessionId, {
+          username: ctx.from.username,
+          userId: ctx.from.id,
+          sessionId: sessionId,
+          requestId: requestId,
+          messageId: ctx.update.callback_query.message.message_id,
+        });
+
+        this.eventEmitter.on(`confUplResult:${ctx.update.callback_query.message.message_id}`, async () => {
+          await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
+        });
+      }
+    });
+
+    this.bot.action(/rejUpl:/, async (ctx, next) => {
+      if (ctx.updateType === 'callback_query' && ctx.update?.callback_query?.data) {
+        const data = ctx.update.callback_query.data.split(':');
+        const sessionId = data[1];
+        const requestId = data[2];
+        this.eventEmitter.emit('rejUpl:' + sessionId, {
+          username: ctx.from.username,
+          userId: ctx.from.id,
+          sessionId: sessionId,
+          requestId: requestId,
+          messageId: ctx.update.callback_query.message.message_id,
+        });
+        this.eventEmitter.on(`rejUplResult:${ctx.update.callback_query.message.message_id}`, async () => {
+          await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
+        });
+      }
+    });
+
     this.bot.start(async ctx => {
       await ctx.reply(startMessage);
     });
 
+    this.jobsService.init(this.bot);
     return this.bot.launch();
   }
 }
