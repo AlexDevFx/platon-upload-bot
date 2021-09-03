@@ -389,6 +389,7 @@ export class UploadFilesSceneBuilder {
     let updateResult = await this.sheetsService.updateBatchCellsValues(maintenanceUploadingSheet.spreadSheetId, rows,'USER_ENTERED');
     if (updateResult) {
       stepState.step = UploadFilesSteps.UploadingConfirmed;
+      await this.dbStorageService.delete(sessionId);
     }
   }
 
