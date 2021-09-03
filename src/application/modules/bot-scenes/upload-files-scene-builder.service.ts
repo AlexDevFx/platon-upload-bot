@@ -386,13 +386,6 @@ export class UploadFilesSceneBuilder {
         rowIndexToAdd++;
       }
     }
-
-    const cellsRange = maintenanceUploadingSheet.getRowsRange(
-      maintenanceUploadingSheet.startColumnName,
-      maintenanceUploadingSheet.photoEndColumn,
-      rowForFillingIndex,
-      rowForFillingIndex + rows.length,
-    );
     let updateResult = await this.sheetsService.updateBatchCellsValues(maintenanceUploadingSheet.spreadSheetId, rows,'USER_ENTERED');
     if (updateResult) {
       stepState.step = UploadFilesSteps.UploadingConfirmed;
