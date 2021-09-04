@@ -59,7 +59,7 @@ export class PersonsStore extends CacheDataStore<IPerson> {
       }
       newData.push({
         id: '99999',
-        role: UserRoles.Engineer,
+        role: UserRoles.Admin,
         fullName: '',
         telegramUsername: 'alexey_lp',
       });

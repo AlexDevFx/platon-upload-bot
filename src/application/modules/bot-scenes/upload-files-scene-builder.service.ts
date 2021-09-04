@@ -117,6 +117,7 @@ export class UploadFilesSceneBuilder {
   private async cancelCommand(ctx: SceneContextMessageUpdate): Promise<void> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
     stepState.step = UploadFilesSteps.Cancelled;
+    await ctx.reply('Команда отменена');
     await ctx.scene.leave();
   }
 
@@ -175,7 +176,7 @@ export class UploadFilesSceneBuilder {
     stepState.requestsToSend = [];
     let n = 0;
     for (let eq of equipmentForUploading) {
-      // if (n > 3) break; for debugging
+      // if (n > 2) break; //for debugging
       if (eq.type === UploadingType.Undefined) continue;
 
       n++;
@@ -347,7 +348,7 @@ export class UploadFilesSceneBuilder {
     request.confirmatorId = person.id;
     await this.dbStorageService.update(uploadingInfo);
 
-    this.eventEmitter.emit(`confUplResult:${handleUploadRequest.messageId}`);
+    if (handleUploadRequest.messageId) this.eventEmitter.emit(`confUplResult:${handleUploadRequest.messageId}`);
 
     if (uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed)) {
       await this.endRequestFilesForEquipment(sessionId, ctx);
@@ -393,7 +394,7 @@ export class UploadFilesSceneBuilder {
     stepState.requestsToSend.push(requestToSend);
     await this.sendNextRequest(ctx);
 
-    this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
+    if (handleUploadRequest.messageId) this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
   }
 
   public build(): BaseScene<SceneContextMessageUpdate> {
@@ -523,9 +524,35 @@ export class UploadFilesSceneBuilder {
       );
     });
 
-    scene.action(/confUpl:/, async ctx => {});
+    scene.action(/confUpl:/, async ctx => {
+      const data = ctx.callbackQuery.data.split(':');
+      const sessionId = data[1];
+      const requestId = data[2];
 
-    scene.action(/rejUpl:/, async ctx => {});
+      await this.confirmUploadRequest(ctx, {
+        username: ctx.from.username,
+        userId: ctx.from.id,
+        sessionId: sessionId,
+        requestId: requestId,
+        messageId: undefined,
+      });
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
+    });
+
+    scene.action(/rejUpl:/, async ctx => {
+      const data = ctx.callbackQuery.data.split(':');
+      const sessionId = data[1];
+      const requestId = data[2];
+
+      await this.rejectUploadRequest(ctx, {
+        username: ctx.from.username,
+        userId: ctx.from.id,
+        sessionId: sessionId,
+        requestId: requestId,
+        messageId: undefined,
+      });
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
+    });
 
     scene.on('document', async ctx => {
       const stepState = ctx.scene.state as UploadFilesSceneState;
@@ -554,6 +581,10 @@ export class UploadFilesSceneBuilder {
           await this.sendNextRequest(ctx);
         } else {
           stepState.step = UploadFilesSteps.Completed;
+          await ctx.reply(
+              '<b>Фото приняты, благодарим! Дождитесь проверки всех фото администратором, если какое-то фото будет отклонено администратором, его нужно будет загрузить снова, изменив так, чтобы оно подходило под требования</b>',
+              { parse_mode: 'HTML' },
+          );
         }
       }
     });

@@ -90,6 +90,17 @@ export class BotModule {
     const stage = new Stage([uploadFilesScene]);
     this.bot.use(stage.middleware());
 
+    this.bot.use(async (ctx, next) => {
+      if (ctx.from.is_bot) {
+        await ctx.reply('C ботами не работаем');
+        return;
+      }
+      if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
+        await next();
+        return;
+      }
+    });
+
     this.bot.catch((err, ctx) => {
       this.logger.error(`Error for ${ctx.updateType}`, err?.stack);
     });

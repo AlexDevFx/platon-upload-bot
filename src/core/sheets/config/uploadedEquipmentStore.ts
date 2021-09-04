@@ -61,8 +61,8 @@ export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment> {
             const matches = /d\/[A-Za-z0-9_-]+\/view/g.exec(r.values[i]);
             const fileId = matches[0]?.split('/')[1];
             let filePath = r.values[i];
-            if (fileId && !fs.existsSync(fileId)) {
-              await this.fileStorageService.download(fileId, fileId);
+            if (fileId) {
+              if (!fs.existsSync(fileId)) await this.fileStorageService.download(fileId, fileId);
               filePath = fileId;
             }
 
