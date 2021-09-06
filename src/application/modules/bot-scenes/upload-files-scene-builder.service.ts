@@ -281,6 +281,7 @@ export class UploadFilesSceneBuilder {
 
     if (result) {
       stepState.step = UploadFilesSteps.UploadingConfirmed;
+      await ctx.telegram.sendMessage(ctx.chat.id, 'Администратор принял все загруженные фото, благодарим!', { parse_mode: 'HTML' });
     }
   }
 
@@ -582,8 +583,8 @@ export class UploadFilesSceneBuilder {
         } else {
           stepState.step = UploadFilesSteps.Completed;
           await ctx.reply(
-              '<b>Фото приняты, благодарим! Дождитесь проверки всех фото администратором, если какое-то фото будет отклонено администратором, его нужно будет загрузить снова, изменив так, чтобы оно подходило под требования</b>',
-              { parse_mode: 'HTML' },
+            '<b>Фото приняты, благодарим! Дождитесь проверки всех фото администратором, если какое-то фото будет отклонено администратором, его нужно будет загрузить снова, изменив так, чтобы оно подходило под требования</b>',
+            { parse_mode: 'HTML' },
           );
         }
       }
