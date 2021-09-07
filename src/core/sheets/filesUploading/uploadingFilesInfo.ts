@@ -1,3 +1,5 @@
+import { RequestStatus } from '../../dataStorage/filesUploading/userUploadingInfoDto';
+
 export class UploadingFilesInfo {
   files: UploadedFile[];
   maintenanceId: string;
@@ -21,6 +23,7 @@ export class RequestFile {
   public message: string;
   public confirmatorId: string;
   public photoFile: string;
+  public status: RequestStatus;
 
   constructor(id: string, equipmentId: string, equipmentName: string, message: string, photoFile: string) {
     this.id = id;
@@ -28,5 +31,6 @@ export class RequestFile {
     this.equipmentName = equipmentName;
     this.message = message;
     this.photoFile = photoFile;
+    this.status = RequestStatus.Unknown;
   }
 }

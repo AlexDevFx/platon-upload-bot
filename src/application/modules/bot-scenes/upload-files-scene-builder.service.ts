@@ -1,28 +1,27 @@
-import { Injectable } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { BaseScene, Markup, Stage } from 'telegraf';
-import { SceneContextMessageUpdate } from 'telegraf/typings/stage';
+import {Injectable} from '@nestjs/common';
+import {HttpService} from '@nestjs/axios';
+import {BaseScene, Markup, Stage} from 'telegraf';
+import {SceneContextMessageUpdate} from 'telegraf/typings/stage';
 import * as fs from 'fs';
-import { LoggerService } from 'nest-logger';
-import { FileStorageService, IUploadResult } from '../../../core/sheets/filesStorage/file-storage.service';
-import { SheetsService } from '../../../core/sheets/sheets.service';
-import { ConfigurationService } from '../../../core/config/configuration.service';
-import { RequestFile, UploadedFile, UploadingFilesInfo } from '../../../core/sheets/filesUploading/uploadingFilesInfo';
-import { CallbackButton } from 'telegraf/typings/markup';
-import { ColumnParam, CompareType, FilterOptions } from '../../../core/sheets/filterOptions';
-import { UploadedEquipmentStore, UploadingType } from '../../../core/sheets/config/uploadedEquipmentStore';
-import { v4 as uuidv4 } from 'uuid';
-import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
-import { JobsService } from '../../../core/jobs/jobs.service';
-import { RequestedFile, RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
-import { IPerson, PersonsStore, UserRoles } from '../../../core/sheets/config/personsStore';
-import { SskEquipmentStore } from '../../../core/sheets/config/sskEquipmentStore';
+import {LoggerService} from 'nest-logger';
+import {FileStorageService, IUploadResult} from '../../../core/sheets/filesStorage/file-storage.service';
+import {SheetsService} from '../../../core/sheets/sheets.service';
+import {ConfigurationService} from '../../../core/config/configuration.service';
+import {RequestFile, UploadedFile, UploadingFilesInfo} from '../../../core/sheets/filesUploading/uploadingFilesInfo';
+import {ColumnParam, CompareType, FilterOptions} from '../../../core/sheets/filterOptions';
+import {UploadedEquipmentStore, UploadingType} from '../../../core/sheets/config/uploadedEquipmentStore';
+import {v4 as uuidv4} from 'uuid';
+import {DbStorageService} from '../../../core/dataStorage/dbStorage.service';
+import {JobsService} from '../../../core/jobs/jobs.service';
+import {RequestedFile, RequestStatus} from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
+import {PersonsStore, UserRoles} from '../../../core/sheets/config/personsStore';
+import {SskEquipmentStore} from '../../../core/sheets/config/sskEquipmentStore';
+import {ISheetUploadRecord} from '../../../core/jobs/isheet-upload.record';
+import {UploadFilesSceneState, UploadFilesSteps} from './UploadQuadMaintenanceScene';
+import {EventEmitter2} from '@nestjs/event-emitter';
+import {IAdminHandleUploadRequest} from '../../../core/event/adminHandleUploadRequest';
+import {firstValueFrom, take} from 'rxjs';
 import moment = require('moment');
-import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
-import { UploadFilesSceneState, UploadFilesSteps } from './UploadQuadMaintenanceScene';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
-import { firstValueFrom, take } from 'rxjs';
 
 const { leave } = Stage;
 
@@ -251,6 +250,8 @@ export class UploadFilesSceneBuilder {
     const stepState = ctx.scene.state as UploadFilesSceneState;
     const newRecords: ISheetUploadRecord[] = [];
 
+    await ctx.telegram.sendMessage(ctx.chat.id, 'Администратор принял все загруженные фото, благодарим!', { parse_mode: 'HTML' });
+
     for (let req of filesForUploading) {
       if (req.status !== RequestStatus.Confirmed) continue;
       const fileUrl = await this.uploadFile(req.file, ctx);
@@ -281,7 +282,6 @@ export class UploadFilesSceneBuilder {
 
     if (result) {
       stepState.step = UploadFilesSteps.UploadingConfirmed;
-      await ctx.telegram.sendMessage(ctx.chat.id, 'Администратор принял все загруженные фото, благодарим!', { parse_mode: 'HTML' });
     }
   }
 
@@ -308,13 +308,6 @@ export class UploadFilesSceneBuilder {
         parse_mode: 'HTML',
       },
     );
-    /*await ctx.reply(
-      request.message,
-      Markup.inlineKeyboard([
-        Markup.callbackButton('✅ Принять', 'confUpl:' + stepState.sessionId + ':' + request.id),
-        Markup.callbackButton('❌ Отклонить', 'rejUpl:' + stepState.sessionId + ':' + request.id),
-      ]).extra({ parse_mode: 'HTML' }),
-    );*/
 
     stepState.uploadingInfo.currentRequestId = request.id;
   }
@@ -354,11 +347,22 @@ export class UploadFilesSceneBuilder {
     request.status = RequestStatus.Confirmed;
     request.confirmatorId = person.id;
 
+    const sentRequest = stepState.uploadingInfo.requests.find(e => e.id === requestId);
+
+    if (sentRequest) {
+      sentRequest.status = RequestStatus.Confirmed;
+    }
+
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`confUplResult:${handleUploadRequest.messageId}`);
-    
+    else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
+
     await this.dbStorageService.update(uploadingInfo);
 
-    if (uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed)) {
+    if (
+      stepState.uploadingInfo.requests?.every(e => e.status === RequestStatus.Confirmed) &&
+      stepState.step === UploadFilesSteps.Completed &&
+      stepState.requestsToSend.length < 1
+    ) {
       await this.endRequestFilesForEquipment(sessionId, ctx);
       await ctx.scene.leave();
     }
@@ -395,27 +399,29 @@ export class UploadFilesSceneBuilder {
       this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return;
     }
-
     request.status = RequestStatus.Rejected;
     await this.dbStorageService.update(uploadingInfo);
     const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
 
-    const requestFile = new RequestFile(
-        uuidv4()
-            .replace('-', '')
-            .substr(0, 8),
-        requestToSend.equipmentId,
-        requestToSend.equipmentName,
-        requestToSend.message,
-        requestToSend.photoFile,
-    )
-    stepState.uploadingInfo.requests.push(requestFile);
-    stepState.requestsToSend.unshift(requestFile);
-    
-    if(stepState.requestsToSend.length === 1)
-      await this.sendNextRequest(ctx);
+    const newFileRequest = new RequestFile(
+      uuidv4()
+        .replace('-', '')
+        .substr(0, 8),
+      requestToSend.equipmentId,
+      requestToSend.equipmentName,
+      requestToSend.message,
+      requestToSend.photoFile,
+    );
+    stepState.uploadingInfo.requests = stepState.uploadingInfo.requests.filter(e => e.id !== requestId);
+    stepState.uploadingInfo.requests.push(newFileRequest);
+    stepState.requestsToSend.unshift(newFileRequest);
 
+    if (stepState.requestsToSend.length === 1 && stepState.step === UploadFilesSteps.Completed) await this.sendNextRequest(ctx);
+
+    stepState.step = UploadFilesSteps.Uploading;
+    
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
+    else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
   }
 
   public build(): BaseScene<SceneContextMessageUpdate> {
@@ -557,17 +563,6 @@ export class UploadFilesSceneBuilder {
         requestId: requestId,
         messageId: undefined,
       });
-      const uploadingInfo = await this.dbStorageService.findBy(sessionId);
-
-      if (!uploadingInfo) {
-        this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
-        return;
-      }
-
-      const request = uploadingInfo.files.find(e => e.id === requestId);
-      if (request && request.status === RequestStatus.Confirmed) {
-        await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
-      }
     });
 
     scene.action(/rejUpl:/, async ctx => {
@@ -580,7 +575,7 @@ export class UploadFilesSceneBuilder {
         userId: ctx.from.id,
         sessionId: sessionId,
         requestId: requestId,
-        messageId: undefined
+        messageId: undefined,
       });
 
       const uploadingInfo = await this.dbStorageService.findBy(sessionId);
@@ -588,23 +583,18 @@ export class UploadFilesSceneBuilder {
         this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
         return;
       }
-
-      const request = uploadingInfo.files.find(e => e.id === requestId);
-      if (request && request.status === RequestStatus.Rejected) {
-        await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
-      }
     });
 
     scene.on('document', async ctx => {
       const stepState = ctx.scene.state as UploadFilesSceneState;
 
-      if (stepState.step !== UploadFilesSteps.Uploading) return;
+      if (!(stepState.step === UploadFilesSteps.Uploading || stepState.step === UploadFilesSteps.Completed)) return;
 
       const doc = ctx.message.document;
       if (doc) {
         const fileUrl = await ctx.telegram.getFileLink(doc.file_id);
         const fileName = fileUrl.split('/').pop();
-
+        
         if (fileUrl) {
           const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
           await this.sendFileForUploading(
