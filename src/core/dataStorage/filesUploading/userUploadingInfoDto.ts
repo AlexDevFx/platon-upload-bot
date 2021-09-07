@@ -42,7 +42,7 @@ export class RequestedFile {
     this.id = id;
     this.equipmentId = equipmentId;
     this.equipmentName = equipmentName;
-    this.status = RequestStatus.Unknown as number;
+    this.status = RequestStatus.Unknown;
     this.file = file;
   }
 }

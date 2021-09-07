@@ -297,14 +297,24 @@ export class UploadFilesSceneBuilder {
 
   private async sendNextRequestMessage(request: RequestFile, ctx: SceneContextMessageUpdate): Promise<void> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
-    await ctx.replyWithPhoto({ source: request.photoFile });
-    await ctx.reply(
+    await ctx.replyWithPhoto(
+      { source: request.photoFile },
+      {
+        caption: request.message,
+        reply_markup: Markup.inlineKeyboard([
+          Markup.callbackButton('✅ Принять', 'confUpl:' + stepState.sessionId + ':' + request.id),
+          Markup.callbackButton('❌ Отклонить', 'rejUpl:' + stepState.sessionId + ':' + request.id),
+        ]),
+        parse_mode: 'HTML',
+      },
+    );
+    /*await ctx.reply(
       request.message,
       Markup.inlineKeyboard([
         Markup.callbackButton('✅ Принять', 'confUpl:' + stepState.sessionId + ':' + request.id),
         Markup.callbackButton('❌ Отклонить', 'rejUpl:' + stepState.sessionId + ':' + request.id),
       ]).extra({ parse_mode: 'HTML' }),
-    );
+    );*/
 
     stepState.uploadingInfo.currentRequestId = request.id;
   }
@@ -334,22 +344,19 @@ export class UploadFilesSceneBuilder {
       return;
     }
 
-    const request = uploadingInfo.files.find(e => e.id === requestId);
+    const request = uploadingInfo.files.find(e => e.id === requestId && e.status == RequestStatus.Unknown);
 
     if (!request) {
       this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return;
     }
 
-    if (request.status === RequestStatus.Confirmed) {
-      return;
-    }
-
     request.status = RequestStatus.Confirmed;
     request.confirmatorId = person.id;
-    await this.dbStorageService.update(uploadingInfo);
 
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`confUplResult:${handleUploadRequest.messageId}`);
+    
+    await this.dbStorageService.update(uploadingInfo);
 
     if (uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed)) {
       await this.endRequestFilesForEquipment(sessionId, ctx);
@@ -382,7 +389,7 @@ export class UploadFilesSceneBuilder {
       return;
     }
 
-    const request = uploadingInfo.files.find(e => e.id === requestId);
+    const request = uploadingInfo.files.find(e => e.id === requestId && e.status == RequestStatus.Unknown);
 
     if (!request) {
       this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
@@ -392,8 +399,21 @@ export class UploadFilesSceneBuilder {
     request.status = RequestStatus.Rejected;
     await this.dbStorageService.update(uploadingInfo);
     const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
-    stepState.requestsToSend.push(requestToSend);
-    await this.sendNextRequest(ctx);
+
+    const requestFile = new RequestFile(
+        uuidv4()
+            .replace('-', '')
+            .substr(0, 8),
+        requestToSend.equipmentId,
+        requestToSend.equipmentName,
+        requestToSend.message,
+        requestToSend.photoFile,
+    )
+    stepState.uploadingInfo.requests.push(requestFile);
+    stepState.requestsToSend.unshift(requestFile);
+    
+    if(stepState.requestsToSend.length === 1)
+      await this.sendNextRequest(ctx);
 
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
   }
@@ -537,7 +557,17 @@ export class UploadFilesSceneBuilder {
         requestId: requestId,
         messageId: undefined,
       });
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
+      const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+
+      if (!uploadingInfo) {
+        this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+        return;
+      }
+
+      const request = uploadingInfo.files.find(e => e.id === requestId);
+      if (request && request.status === RequestStatus.Confirmed) {
+        await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
+      }
     });
 
     scene.action(/rejUpl:/, async ctx => {
@@ -550,9 +580,19 @@ export class UploadFilesSceneBuilder {
         userId: ctx.from.id,
         sessionId: sessionId,
         requestId: requestId,
-        messageId: undefined,
+        messageId: undefined
       });
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
+
+      const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+      if (!uploadingInfo) {
+        this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+        return;
+      }
+
+      const request = uploadingInfo.files.find(e => e.id === requestId);
+      if (request && request.status === RequestStatus.Rejected) {
+        await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
+      }
     });
 
     scene.on('document', async ctx => {
