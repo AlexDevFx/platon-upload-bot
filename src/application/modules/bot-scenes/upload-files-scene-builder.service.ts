@@ -1,26 +1,26 @@
-import {Injectable} from '@nestjs/common';
-import {HttpService} from '@nestjs/axios';
-import {BaseScene, Markup, Stage} from 'telegraf';
-import {SceneContextMessageUpdate} from 'telegraf/typings/stage';
+import { Injectable } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { BaseScene, Markup, Stage } from 'telegraf';
+import { SceneContextMessageUpdate } from 'telegraf/typings/stage';
 import * as fs from 'fs';
-import {LoggerService} from 'nest-logger';
-import {FileStorageService, IUploadResult} from '../../../core/sheets/filesStorage/file-storage.service';
-import {SheetsService} from '../../../core/sheets/sheets.service';
-import {ConfigurationService} from '../../../core/config/configuration.service';
-import {RequestFile, UploadedFile, UploadingFilesInfo} from '../../../core/sheets/filesUploading/uploadingFilesInfo';
-import {ColumnParam, CompareType, FilterOptions} from '../../../core/sheets/filterOptions';
-import {UploadedEquipmentStore, UploadingType} from '../../../core/sheets/config/uploadedEquipmentStore';
-import {v4 as uuidv4} from 'uuid';
-import {DbStorageService} from '../../../core/dataStorage/dbStorage.service';
-import {JobsService} from '../../../core/jobs/jobs.service';
-import {RequestedFile, RequestStatus} from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
-import {PersonsStore, UserRoles} from '../../../core/sheets/config/personsStore';
-import {SskEquipmentStore} from '../../../core/sheets/config/sskEquipmentStore';
-import {ISheetUploadRecord} from '../../../core/jobs/isheet-upload.record';
-import {UploadFilesSceneState, UploadFilesSteps} from './UploadQuadMaintenanceScene';
-import {EventEmitter2} from '@nestjs/event-emitter';
-import {IAdminHandleUploadRequest} from '../../../core/event/adminHandleUploadRequest';
-import {firstValueFrom, take} from 'rxjs';
+import { LoggerService } from 'nest-logger';
+import { FileStorageService, IUploadResult } from '../../../core/sheets/filesStorage/file-storage.service';
+import { SheetsService } from '../../../core/sheets/sheets.service';
+import { ConfigurationService } from '../../../core/config/configuration.service';
+import { RequestFile, UploadedFile, UploadingFilesInfo } from '../../../core/sheets/filesUploading/uploadingFilesInfo';
+import { ColumnParam, CompareType, FilterOptions } from '../../../core/sheets/filterOptions';
+import { IUploadedEquipment, UploadedEquipmentStore, UploadingType } from '../../../core/sheets/config/uploadedEquipmentStore';
+import { v4 as uuidv4 } from 'uuid';
+import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
+import { JobsService } from '../../../core/jobs/jobs.service';
+import { RequestedFile, RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
+import { PersonsStore, UserRoles } from '../../../core/sheets/config/personsStore';
+import { SskEquipmentStore } from '../../../core/sheets/config/sskEquipmentStore';
+import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
+import { UploadFilesSceneState, UploadFilesSteps } from './UploadQuadMaintenanceScene';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
+import { firstValueFrom, take } from 'rxjs';
 import moment = require('moment');
 
 const { leave } = Stage;
@@ -174,18 +174,18 @@ export class UploadFilesSceneBuilder {
     stepState.uploadingInfo.currentRequestIndex = 0;
     stepState.requestsToSend = [];
     let n = 0;
+
     for (let eq of equipmentForUploading) {
-      if (n > 10) break; //for debugging
+      // if (n > 10) break; //for debugging
       if (eq.type === UploadingType.Undefined) continue;
 
       n++;
 
       let message = `<b>${eq.name}</b>\n`;
       let additionalInfo = '';
-      let equipmentId = eq.name;
       if (eq.type === UploadingType.Ssk) {
-        const sskEquipment = sskEquipments.filter(e => e.name === eq.name && !addedEquipments.some(ae => ae === e.id))[0];
-        if (sskEquipment) {
+        let sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
+        while (sskEquipment) {
           addedEquipments.push(sskEquipment.id);
           const info = [];
           for (let ai of sskEquipment.additionalInfo) {
@@ -195,22 +195,35 @@ export class UploadFilesSceneBuilder {
           }
           additionalInfo = info.join(',');
           if (additionalInfo !== '') additionalInfo += '\n';
-          equipmentId = sskEquipment.id;
+          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq);
+          sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
         }
       }
-      for (let exml of eq.examples) {
-        const requestFile = new RequestFile(
-          uuidv4()
-            .replace('-', '')
-            .substr(0, 8),
-          equipmentId,
-          eq.name,
-          `${message}${additionalInfo}${exml.description}`,
-          exml.url,
-        );
-        stepState.uploadingInfo.requests.push(requestFile);
-        stepState.requestsToSend.push(requestFile);
+      if (eq.type === UploadingType.All) {
+        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq);
       }
+    }
+  }
+
+  private static addRequestToState(
+    equipmentId: string,
+    info: string,
+    message: string,
+    state: UploadFilesSceneState,
+    equipment: IUploadedEquipment,
+  ): void {
+    for (let exml of equipment.examples) {
+      const requestFile = new RequestFile(
+        uuidv4()
+          .replace('-', '')
+          .substr(0, 8),
+        equipmentId,
+        equipment.name,
+        `${message}${info}${exml.description}`,
+        exml.url,
+      );
+      state.uploadingInfo.requests.push(requestFile);
+      state.requestsToSend.push(requestFile);
     }
   }
 
@@ -419,7 +432,7 @@ export class UploadFilesSceneBuilder {
     if (stepState.requestsToSend.length === 1 && stepState.step === UploadFilesSteps.Completed) await this.sendNextRequest(ctx);
 
     stepState.step = UploadFilesSteps.Uploading;
-    
+
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
     else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
   }
@@ -594,7 +607,7 @@ export class UploadFilesSceneBuilder {
       if (doc) {
         const fileUrl = await ctx.telegram.getFileLink(doc.file_id);
         const fileName = fileUrl.split('/').pop();
-        
+
         if (fileUrl) {
           const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
           await this.sendFileForUploading(
