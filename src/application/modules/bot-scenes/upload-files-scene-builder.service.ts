@@ -175,7 +175,7 @@ export class UploadFilesSceneBuilder {
     stepState.requestsToSend = [];
     let n = 0;
     for (let eq of equipmentForUploading) {
-      // if (n > 2) break; //for debugging
+      if (n > 10) break; //for debugging
       if (eq.type === UploadingType.Undefined) continue;
 
       n++;
@@ -255,7 +255,7 @@ export class UploadFilesSceneBuilder {
     for (let req of filesForUploading) {
       if (req.status !== RequestStatus.Confirmed) continue;
       const fileUrl = await this.uploadFile(req.file, ctx);
-      let record = newRecords.find(e => e.requestId === req.id);
+      let record = newRecords.find(e => e.equipmentId === req.equipmentId);
 
       if (fileUrl) {
         if (!record) {
