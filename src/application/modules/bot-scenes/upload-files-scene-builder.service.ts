@@ -325,7 +325,7 @@ export class UploadFilesSceneBuilder {
     stepState.uploadingInfo.currentRequestId = request.id;
   }
 
-  private async confirmUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<void> {
+  private async confirmUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
     const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
@@ -334,27 +334,27 @@ export class UploadFilesSceneBuilder {
       stepState.step === UploadFilesSteps.Cancelled ||
       stepState.step === UploadFilesSteps.UploadingConfirmed
     )
-      return;
+      return false;
 
     const sessionId = handleUploadRequest.sessionId;
     const requestId = handleUploadRequest.requestId;
     if (!requestId) {
       this.logger.error('Поле requestId пустое при подтверждении');
-      return;
+      return false;
     }
 
     const uploadingInfo = await this.dbStorageService.findBy(sessionId);
 
     if (!uploadingInfo) {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
-      return;
+      return false;
     }
 
     const request = uploadingInfo.files.find(e => e.id === requestId && e.status == RequestStatus.Unknown);
 
     if (!request) {
       this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
-      return;
+      return false;
     }
 
     request.status = RequestStatus.Confirmed;
@@ -379,38 +379,38 @@ export class UploadFilesSceneBuilder {
       await this.endRequestFilesForEquipment(sessionId, ctx);
       await ctx.scene.leave();
     }
+    return true;
   }
 
-  private async rejectUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<void> {
+  private async rejectUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
     const stepState = ctx.scene.state as UploadFilesSceneState;
     const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
-      person?.role !== UserRoles.Admin ||
       stepState.step === UploadFilesSteps.Enter ||
       stepState.step === UploadFilesSteps.Cancelled ||
       stepState.step === UploadFilesSteps.UploadingConfirmed
     )
-      return;
+      return false;
 
     const sessionId = handleUploadRequest.sessionId;
     const requestId = handleUploadRequest.requestId;
     if (!requestId) {
       this.logger.error('Поле requestId пустое при отклонении');
-      return;
+      return false;
     }
 
     const uploadingInfo = await this.dbStorageService.findBy(sessionId);
 
     if (!uploadingInfo) {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
-      return;
+      return false;
     }
 
     const request = uploadingInfo.files.find(e => e.id === requestId && e.status == RequestStatus.Unknown);
 
     if (!request) {
       this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
-      return;
+      return false;
     }
     request.status = RequestStatus.Rejected;
     await this.dbStorageService.update(uploadingInfo);
@@ -435,6 +435,7 @@ export class UploadFilesSceneBuilder {
 
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
     else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
+    return true;
   }
 
   public build(): BaseScene<SceneContextMessageUpdate> {
@@ -583,13 +584,15 @@ export class UploadFilesSceneBuilder {
       const sessionId = data[1];
       const requestId = data[2];
 
-      await this.rejectUploadRequest(ctx, {
+      if(!(await this.rejectUploadRequest(ctx, {
         username: ctx.from.username,
         userId: ctx.from.id,
         sessionId: sessionId,
         requestId: requestId,
         messageId: undefined,
-      });
+      }))) {
+        return;
+      }
 
       const uploadingInfo = await this.dbStorageService.findBy(sessionId);
       if (!uploadingInfo) {
