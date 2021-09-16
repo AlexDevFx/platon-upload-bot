@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { BaseScene, Markup, Stage } from 'telegraf';
+import {BaseScene, Markup, Stage, Telegraf} from 'telegraf';
 import { SceneContextMessageUpdate } from 'telegraf/typings/stage';
 import * as fs from 'fs';
 import { LoggerService } from 'nest-logger';
@@ -22,6 +22,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
 import { firstValueFrom, take } from 'rxjs';
 import moment = require('moment');
+import {TelegrafContext} from "telegraf/typings/context";
 
 const { leave } = Stage;
 
@@ -230,19 +231,6 @@ export class UploadFilesSceneBuilder {
   private async startRequestFilesForEquipment(ctx: SceneContextMessageUpdate): Promise<void> {
     await this.createRequestsForFiles(ctx);
     await this.sendNextRequest(ctx);
-    /*const stepState = ctx.scene.state as UploadFilesSceneState;
-    
-    if (!stepState.uploadingInfo || !stepState.uploadingInfo.requests) return;
-
-    for(const request of stepState.uploadingInfo.requests){
-      await ctx.reply(
-          request.message,
-          Markup.inlineKeyboard([
-            Markup.callbackButton('✅ Принято', 'confUpl:' + stepState.sessionId + ':' + request.id),
-            Markup.callbackButton('❌ Отклонено', 'rejUpl:' + stepState.sessionId + ':' + request.id),
-          ]).extra({ parse_mode: 'HTML' }),
-      );
-    }*/
   }
 
   private async endRequestFilesForEquipment(sessionId: string, ctx: SceneContextMessageUpdate): Promise<void> {
@@ -437,10 +425,13 @@ export class UploadFilesSceneBuilder {
     else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
     return true;
   }
+  
+  private bot;
 
-  public build(): BaseScene<SceneContextMessageUpdate> {
+  public build(bot: Telegraf<TelegrafContext>): BaseScene<SceneContextMessageUpdate> {
     const scene = new BaseScene(this.SceneName);
-
+    bot = bot;
+    
     scene.enter(async ctx => {
       const person = await this.personsStore.getPersonByUserName(ctx.from.username);
       ctx.scene.state = {
@@ -468,7 +459,7 @@ export class UploadFilesSceneBuilder {
       leave();
     });
 
-    scene.hears(/.+/gi, async (ctx, next) => {
+    this.bot.hears(/.+/gi, async (ctx, next) => {
       if (ctx.message.text.startsWith('/')) {
         await next();
         return;

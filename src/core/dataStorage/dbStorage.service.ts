@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { UserUploadingInfo } from './filesUploading/UserUploadingInfo.model';
+import { UserUploadingInfo } from '../filesUploading/UserUploadingInfo.model';
 import { Model } from 'mongoose';
-import { UserUploadingInfoDto } from './filesUploading/userUploadingInfoDto';
+import { UserUploadingInfoDto } from '../filesUploading/userUploadingInfoDto';
 
 @Injectable()
 export class DbStorageService {
@@ -17,6 +17,10 @@ export class DbStorageService {
   }
 
   public async findBy(id: string): Promise<UserUploadingInfo> {
+    return await this.uploadingInfoModel.findById(id).exec();
+  }
+
+  public async findOne(id: string): Promise<UserUploadingInfo> {
     return await this.uploadingInfoModel.findById(id).exec();
   }
 

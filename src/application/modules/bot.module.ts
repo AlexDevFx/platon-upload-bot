@@ -12,14 +12,12 @@ import { FileStorageService } from '../../core/sheets/filesStorage/file-storage.
 import { DbStorageService } from '../../core/dataStorage/dbStorage.service';
 import { JobsModule } from './jobs.module';
 import { DatabaseModule } from './database.module';
-import { userUploadingInfoProviders } from '../../core/dataStorage/filesUploading/userUploadingInfo.providers';
+import { userUploadingInfoProviders } from '../../core/filesUploading/userUploadingInfo.providers';
 import { PersonsStore } from '../../core/sheets/config/personsStore';
 import { SskEquipmentStore } from '../../core/sheets/config/sskEquipmentStore';
 import { JobsService } from '../../core/jobs/jobs.service';
-import { UploadFilesSceneState, UploadFilesSteps } from './bot-scenes/UploadQuadMaintenanceScene';
-import { RequestStatus } from '../../core/dataStorage/filesUploading/userUploadingInfoDto';
 import { EventEmitter2, EventEmitterModule } from '@nestjs/event-emitter';
-import { IAdminHandleUploadRequest } from '../../core/event/adminHandleUploadRequest';
+import {UploadFilesSessionStorageService} from "../../core/dataStorage/uploadFilesSessionStorage.service";
 
 @Module({
   imports: [
@@ -56,6 +54,7 @@ import { IAdminHandleUploadRequest } from '../../core/event/adminHandleUploadReq
     SheetsService,
     FileStorageService,
     DbStorageService,
+    UploadFilesSessionStorageService,
     PersonsStore,
     SskEquipmentStore,
     ...userUploadingInfoProviders,
@@ -70,6 +69,7 @@ export class BotModule {
     private readonly personsStore: PersonsStore,
     private readonly eventEmitter: EventEmitter2,
     private readonly uploadedEquipmentStore: UploadedEquipmentStore,
+    private readonly uploadFilesSessionStorageService :UploadFilesSessionStorageService
   ) {
     this.init(process.env.BOT_TOKEN).then(async () => {
       this.logger.log('Bot has been started');

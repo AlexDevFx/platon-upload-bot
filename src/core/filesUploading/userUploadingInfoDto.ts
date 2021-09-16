@@ -1,4 +1,4 @@
-import { UploadedFile } from '../../sheets/filesUploading/uploadingFilesInfo';
+import { UploadedFile } from '../sheets/filesUploading/uploadingFilesInfo';
 import exp = require('constants');
 
 export interface IUserUploadingInfo {
