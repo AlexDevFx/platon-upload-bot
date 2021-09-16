@@ -13,11 +13,12 @@ export class DbStorageService {
   public async insert(data: UserUploadingInfoDto): Promise<string> {
     const createdData = new this.uploadingInfoModel(data);
     const userUploadingInfo = await createdData.save();
+
     return userUploadingInfo._id.toString();
   }
 
-  public async findBy(id: string): Promise<UserUploadingInfo> {
-    return await this.uploadingInfoModel.findById(id).exec();
+  public async findBySessionId(sessionId: string): Promise<UserUploadingInfo> {
+    return await this.uploadingInfoModel.findOne({ sessionId: sessionId }).exec();
   }
 
   public async findOne(id: string): Promise<UserUploadingInfo> {

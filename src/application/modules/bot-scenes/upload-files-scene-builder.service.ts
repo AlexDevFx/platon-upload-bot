@@ -23,20 +23,8 @@ import { firstValueFrom, take } from 'rxjs';
 import moment = require('moment');
 import { TelegrafContext } from 'telegraf/typings/context';
 import { UploadFilesSessionStorageService } from '../../../core/dataStorage/uploadFilesSessionStorage.service';
-import { IUploadFilesSceneSession, UploadFilesSceneSession } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
+import { UploadFilesSceneSession } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
 import { RequestedFile, RequestStatus } from '../../../core/filesUploading/userUploadingInfoDto';
-
-const { leave } = Stage;
-
-class FileRequestData {
-  public id: string;
-  public file: UploadedFile;
-
-  constructor(id: string, file: UploadedFile) {
-    this.id = id;
-    this.file = file;
-  }
-}
 
 @Injectable()
 export class UploadFilesSceneBuilder {
@@ -103,7 +91,7 @@ export class UploadFilesSceneBuilder {
     }
     const request = stepState.uploadingInfo.requests.find(e => e.id === requestId);
     if (request) {
-      const uploadingInfo = await this.dbStorageService.findBy(stepState.sessionId);
+      const uploadingInfo = await this.dbStorageService.findBySessionId(stepState.sessionId);
       const requestedFile = new RequestedFile(requestId, request.equipmentId, request.equipmentName, {
         name: file.name,
         size: file.size,
@@ -241,7 +229,7 @@ export class UploadFilesSceneBuilder {
   }
 
   private async endRequestFilesForEquipment(sessionId: string, ctx: TelegrafContext): Promise<void> {
-    const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+    const uploadingInfo = await this.dbStorageService.findBySessionId(sessionId);
 
     if (!uploadingInfo) {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
@@ -339,7 +327,7 @@ export class UploadFilesSceneBuilder {
       return false;
     }
 
-    const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+    const uploadingInfo = await this.dbStorageService.findBySessionId(sessionId);
 
     if (!uploadingInfo) {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
@@ -395,7 +383,7 @@ export class UploadFilesSceneBuilder {
       return false;
     }
 
-    const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+    const uploadingInfo = await this.dbStorageService.findBySessionId(sessionId);
 
     if (!uploadingInfo) {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
@@ -449,12 +437,14 @@ export class UploadFilesSceneBuilder {
     };
     const existedSession = await this.uploadFilesSessionStorageService.find(newSession.sessionId);
     if (existedSession) {
-      if (await this.uploadFilesSessionStorageService.delete(newSession.sessionId)) await this.uploadFilesSessionStorageService.insert(newSession);
-      else {
+      if (await this.uploadFilesSessionStorageService.delete(newSession.sessionId)) {
+        await this.uploadFilesSessionStorageService.insert(newSession);
+      } else {
         existedSession.user = newSession.user;
         existedSession.step = newSession.step;
         existedSession.uploadingInfo = newSession.uploadingInfo;
         existedSession.requestsToSend = newSession.requestsToSend;
+        await this.uploadFilesSessionStorageService.update(existedSession);
       }
     } else {
       await this.uploadFilesSessionStorageService.insert(newSession);
@@ -471,7 +461,7 @@ export class UploadFilesSceneBuilder {
   }
 
   private static getSessionId(ctx: TelegrafContext): string {
-    return `${ctx.chat.id}:${ctx.from.id}`;
+    return `${ctx.chat.id}_${ctx.from.id}`;
   }
 
   private async getSession(ctx: TelegrafContext): Promise<UploadFilesSceneSession> {
@@ -567,7 +557,12 @@ export class UploadFilesSceneBuilder {
     bot.command('quad', async ctx => {
       const session = await this.getSession(ctx);
 
-      if (!session || session.step === UploadFilesSteps.UploadingConfirmed || session.step === UploadFilesSteps.Cancelled) {
+      if (
+        !session ||
+        session.step === UploadFilesSteps.UploadingConfirmed ||
+        session.step === UploadFilesSteps.Cancelled ||
+        session.step === UploadFilesSteps.Completed
+      ) {
         await this.enterScene(ctx);
       } else {
         await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
@@ -615,7 +610,7 @@ export class UploadFilesSceneBuilder {
         return;
       }
 
-      const uploadingInfo = await this.dbStorageService.findBy(sessionId);
+      const uploadingInfo = await this.dbStorageService.findBySessionId(sessionId);
       if (!uploadingInfo) {
         this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
         return;

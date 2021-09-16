@@ -34,7 +34,7 @@ export class UploadFilesSessionStorageService {
   public async update(data: UploadFilesSceneSession): Promise<boolean> {
     data.isNew = false;
     const updated = await data.save();
-    let session = this.sessions.find(e => e.sessionId === data.sessionId);
+    let session = this.sessions.find(e => e?.sessionId === data.sessionId);
     if (session) {
       session = data;
     }
@@ -43,7 +43,7 @@ export class UploadFilesSessionStorageService {
 
   public async delete(sessionId: string): Promise<boolean> {
     const result = await this.uploadingInfoModel.deleteOne({ sessionId: sessionId }).exec();
-    this.sessions = this.sessions.filter(e => e.sessionId !== sessionId);
+    this.sessions = this.sessions.filter(e => e?.sessionId !== sessionId);
     return result.deletedCount > 0;
   }
 }
