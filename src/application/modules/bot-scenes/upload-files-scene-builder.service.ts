@@ -62,24 +62,32 @@ export class UploadFilesSceneBuilder {
     return month % 3 === 0 ? month / 3 : Math.floor(month / 3) + 1;
   }
 
-  private async uploadFile(file: UploadedFile, ctx: TelegrafContext): Promise<string> {
+  private async uploadFile(file: UploadedFile, ctx: TelegrafContext, tryNumber: number = 0): Promise<string> {
     const stepState = await this.getSession(ctx);
 
     if (!file) {
       await ctx.reply('Нет загруженного файла');
       return undefined;
     }
+    
+    try{
+      const result = await this.createAndShareFolder(stepState.uploadingInfo.sskNumber, ctx);
+      await this.downloadImage(file.url, file.name);
+      const uploadResult = await this.fileStorageService.upload(file.name, file.size, result.fileId, null);
 
-    const result = await this.createAndShareFolder(stepState.uploadingInfo.sskNumber, ctx);
-    await this.downloadImage(file.url, file.name);
-    const uploadResult = await this.fileStorageService.upload(file.name, file.size, result.fileId, null);
-
-    if (!stepState.uploadingInfo.folderUrl) {
-      stepState.uploadingInfo.folderUrl = result.fileUrl;
-      await this.uploadFilesSessionStorageService.update(stepState);
+      if (!stepState.uploadingInfo.folderUrl) {
+        stepState.uploadingInfo.folderUrl = result.fileUrl;
+        await this.uploadFilesSessionStorageService.update(stepState);
+      }
+      return uploadResult.fileUrl;
     }
-
-    return uploadResult.fileUrl;
+    catch(e){
+      this.logger.error(`File uploading error: ${file.url}, ${file.name}. Try: ${tryNumber}`, e);
+      if(tryNumber < 10) {
+        return await this.uploadFile(file, ctx, tryNumber+1);
+      }
+    }
+    return undefined;
   }
 
   private async sendFileForUploading(requestId: string, file: UploadedFile, ctx: TelegrafContext): Promise<boolean> {
