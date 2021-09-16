@@ -7,10 +7,20 @@ import { Agenda } from 'agenda';
 import { Telegraf } from 'telegraf';
 import { TelegrafContext } from 'telegraf/typings/context';
 import { IUploadMaintenanceParams } from './iupload-maintenance.params';
+import {RequestedFile} from "../filesUploading/userUploadingInfoDto";
 
 export interface MessageData {
   chatId: number;
   message: string;
+}
+
+interface IStartUploadingParams {
+  files: RequestedFile[],
+  sessionId: string;
+  maintenanceId: string;
+  fromChatId: number;
+  engineerPersonId: string;
+  sskNumber: string;
 }
 
 @Injectable()
@@ -51,6 +61,10 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
 
   public async runUploadQuadMaintenanceFiles(params: IUploadMaintenanceParams): Promise<boolean> {
     return (await this.agenda.now('uploadQuadMaintenanceFiles', params)) !== undefined;
+  }
+
+  public async startUploadingFiles(params: IStartUploadingParams): Promise<boolean> {
+    return (await this.agenda.now('startUploadingFiles', params)) !== undefined;
   }
 
   private defineJobs() {

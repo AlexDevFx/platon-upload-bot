@@ -179,7 +179,7 @@ export class UploadFilesSceneBuilder {
     let n = 0;
 
     for (let eq of equipmentForUploading) {
-      // if (n > 10) break; //for debugging
+      //if (n > 3) break; //for debugging
       if (eq.type === UploadingType.Undefined) continue;
 
       n++;
@@ -256,32 +256,13 @@ export class UploadFilesSceneBuilder {
 
     await ctx.telegram.sendMessage(ctx.chat.id, 'Администратор принял все загруженные фото, благодарим!', { parse_mode: 'HTML' });
 
-    for (let req of filesForUploading) {
-      if (req.status !== RequestStatus.Confirmed) continue;
-      const fileUrl = await this.uploadFile(req.file, ctx);
-      let record = newRecords.find(e => e.equipmentId === req.equipmentId);
-
-      if (fileUrl) {
-        if (!record) {
-          record = {
-            requestId: req.id,
-            maintenanceId: stepState.uploadingInfo.maintenanceId,
-            equipmentName: req.equipmentName,
-            equipmentId: req.equipmentId,
-            engineerPersonId: stepState.user.person.id,
-            confirmatorPersonId: req.confirmatorId,
-            files: [fileUrl],
-          };
-          newRecords.push(record);
-        } else record.files.push(fileUrl);
-      }
-    }
-
-    const result = await this.jobsService.runUploadQuadMaintenanceFiles({
-      fromChatId: ctx.chat.id,
+    const result = await this.jobsService.startUploadingFiles({
+      files: filesForUploading,
       sessionId: sessionId,
       maintenanceId: stepState.uploadingInfo.maintenanceId,
-      records: newRecords,
+      fromChatId: ctx.chat.id,
+      engineerPersonId: stepState.user.person.id,
+      sskNumber: stepState.uploadingInfo.sskNumber
     });
 
     if (result) {
