@@ -74,7 +74,7 @@ export class UploadFilesSceneBuilder {
     return month % 3 === 0 ? month / 3 : Math.floor(month / 3) + 1;
   }
 
-  private async uploadFile(file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<string> {
+  private async uploadFile(file: UploadedFile, ctx: TelegrafContext): Promise<string> {
     const stepState = await this.getSession(ctx);
 
     if (!file) {
@@ -94,7 +94,7 @@ export class UploadFilesSceneBuilder {
     return uploadResult.fileUrl;
   }
 
-  private async sendFileForUploading(requestId: string, file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<boolean> {
+  private async sendFileForUploading(requestId: string, file: UploadedFile, ctx: TelegrafContext): Promise<boolean> {
     const stepState = await this.getSession(ctx);
 
     if (!file) {
@@ -119,7 +119,7 @@ export class UploadFilesSceneBuilder {
     return false;
   }
 
-  private async cancelCommand(ctx: SceneContextMessageUpdate): Promise<void> {
+  private async cancelCommand(ctx: TelegrafContext): Promise<void> {
     const stepState = await this.getSession(ctx);
     stepState.step = UploadFilesSteps.Cancelled;
     await this.uploadFilesSessionStorageService.update(stepState);
@@ -127,7 +127,7 @@ export class UploadFilesSceneBuilder {
     await this.leaveScene(ctx);
   }
 
-  private async createAndShareFolder(sskNumber: string, ctx: SceneContextMessageUpdate): Promise<IUploadResult> {
+  private async createAndShareFolder(sskNumber: string, ctx: TelegrafContext): Promise<IUploadResult> {
     const quarterFolderName = `${moment().format('YYYY')}.${this.getQuarter()}`;
     let result = await this.fileStorageService.getOrCreateFolder(quarterFolderName, null, null);
     if (!result.success) {
@@ -153,7 +153,7 @@ export class UploadFilesSceneBuilder {
     return result;
   }
 
-  private async createRequestsForFiles(ctx: SceneContextMessageUpdate): Promise<void> {
+  private async createRequestsForFiles(ctx: TelegrafContext): Promise<void> {
     const equipmentForUploading = await this.uploadedEquipmentStore.getData();
 
     if (!equipmentForUploading) return;
@@ -235,12 +235,12 @@ export class UploadFilesSceneBuilder {
     }
   }
 
-  private async startRequestFilesForEquipment(ctx: SceneContextMessageUpdate): Promise<void> {
+  private async startRequestFilesForEquipment(ctx: TelegrafContext): Promise<void> {
     await this.createRequestsForFiles(ctx);
     await this.sendNextRequest(ctx);
   }
 
-  private async endRequestFilesForEquipment(sessionId: string, ctx: SceneContextMessageUpdate): Promise<void> {
+  private async endRequestFilesForEquipment(sessionId: string, ctx: TelegrafContext): Promise<void> {
     const uploadingInfo = await this.dbStorageService.findBy(sessionId);
 
     if (!uploadingInfo) {
@@ -294,7 +294,7 @@ export class UploadFilesSceneBuilder {
     }
   }
 
-  private async sendNextRequest(ctx: SceneContextMessageUpdate): Promise<void> {
+  private async sendNextRequest(ctx: TelegrafContext): Promise<void> {
     const stepState = await this.getSession(ctx);
 
     if (!stepState.requestsToSend) return;
@@ -305,7 +305,7 @@ export class UploadFilesSceneBuilder {
     await this.uploadFilesSessionStorageService.update(stepState);
   }
 
-  private async sendNextRequestMessage(request: RequestFile, ctx: SceneContextMessageUpdate, stepState: UploadFilesSceneSession): Promise<void> {
+  private async sendNextRequestMessage(request: RequestFile, ctx: TelegrafContext, stepState: UploadFilesSceneSession): Promise<void> {
     await ctx.replyWithPhoto(
       { source: request.photoFile },
       {
@@ -321,7 +321,7 @@ export class UploadFilesSceneBuilder {
     stepState.uploadingInfo.currentRequestId = request.id;
   }
 
-  private async confirmUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
+  private async confirmUploadRequest(ctx: TelegrafContext, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
     const stepState = await this.getSession(ctx);
     const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
@@ -378,7 +378,7 @@ export class UploadFilesSceneBuilder {
     return true;
   }
 
-  private async rejectUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
+  private async rejectUploadRequest(ctx: TelegrafContext, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
     const stepState = await this.getSession(ctx);
     const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
@@ -484,7 +484,7 @@ export class UploadFilesSceneBuilder {
     const scene = new BaseScene(this.SceneName);
     bot = bot;
 
-    this.bot.hears(/.+/gi, async (ctx, next) => {
+    bot.hears(/.+/gi, async (ctx, next) => {
       if (ctx.message.text.startsWith('/')) {
         await next();
         return;
@@ -543,7 +543,7 @@ export class UploadFilesSceneBuilder {
       }
     });
 
-    this.bot.action('ConfirmId', async ctx => {
+    bot.action('ConfirmId', async ctx => {
       await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Да', 'ConfirmId')]]));
       const stepState = await this.getSession(ctx);
       stepState.step = UploadFilesSteps.Uploading;
@@ -551,20 +551,20 @@ export class UploadFilesSceneBuilder {
       await this.startRequestFilesForEquipment(ctx);
     });
 
-    this.bot.action('RejectId', async ctx => {
+    bot.action('RejectId', async ctx => {
       await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Нет', 'RejectId')]]));
       await this.enterScene(ctx);
     });
 
-    this.bot.action('Cancel', async ctx => {
+    bot.action('Cancel', async ctx => {
       await this.cancelCommand(ctx);
     });
 
-    this.bot.command('cancel', async ctx => {
+    bot.command('cancel', async ctx => {
       await this.cancelCommand(ctx);
     });
 
-    this.bot.command('quad', async ctx => {
+    bot.command('quad', async ctx => {
       const session = await this.getSession(ctx);
 
       if (!session || session.step === UploadFilesSteps.UploadingConfirmed || session.step === UploadFilesSteps.Cancelled) {
@@ -574,17 +574,17 @@ export class UploadFilesSceneBuilder {
       }
     });
 
-    this.bot.command('year', async ctx => {
+    bot.command('year', async ctx => {
       await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
     });
 
-    this.bot.on('photo', async ctx => {
+    bot.on('photo', async ctx => {
       await ctx.reply(
         'Фото принимаются только БЕЗ СЖАТИЯ". Чтобы отправить фото правильно, нужно нажать на скрепку справа от поля ввода сообщения, выделить фото и справа вверху экрана нажать на три точки и выбрать "Отправить без сжатия"',
       );
     });
 
-    this.bot.action(/confUpl:/, async ctx => {
+    bot.action(/confUpl:/, async ctx => {
       const data = ctx.callbackQuery.data.split(':');
       const sessionId = data[1];
       const requestId = data[2];
@@ -598,7 +598,7 @@ export class UploadFilesSceneBuilder {
       });
     });
 
-    this.bot.action(/rejUpl:/, async ctx => {
+    bot.action(/rejUpl:/, async ctx => {
       const data = ctx.callbackQuery.data.split(':');
       const sessionId = data[1];
       const requestId = data[2];
@@ -622,7 +622,7 @@ export class UploadFilesSceneBuilder {
       }
     });
 
-    this.bot.on('document', async ctx => {
+    bot.on('document', async ctx => {
       const stepState = await this.getSession(ctx);
 
       if (!(stepState.step === UploadFilesSteps.Uploading || stepState.step === UploadFilesSteps.Completed)) return;

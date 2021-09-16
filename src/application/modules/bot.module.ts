@@ -18,6 +18,7 @@ import { SskEquipmentStore } from '../../core/sheets/config/sskEquipmentStore';
 import { JobsService } from '../../core/jobs/jobs.service';
 import { EventEmitter2, EventEmitterModule } from '@nestjs/event-emitter';
 import { UploadFilesSessionStorageService } from '../../core/dataStorage/uploadFilesSessionStorage.service';
+import { uploadFilesSceneSessionProvider } from '../../core/dataStorage/models/filesUploading/uploadFilesSceneSession.provider';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { UploadFilesSessionStorageService } from '../../core/dataStorage/uploadF
     PersonsStore,
     SskEquipmentStore,
     ...userUploadingInfoProviders,
+    ...uploadFilesSceneSessionProvider,
   ],
 })
 export class BotModule {

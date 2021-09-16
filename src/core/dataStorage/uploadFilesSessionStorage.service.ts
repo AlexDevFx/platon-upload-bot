@@ -21,7 +21,7 @@ export class UploadFilesSessionStorageService {
   }
 
   public async find(sessionId: string): Promise<UploadFilesSceneSession> {
-    let session = this.sessions.find(e => e.sessionId === sessionId);
+    let session = this.sessions.find(e => e?.sessionId === sessionId);
 
     if (!session) {
       session = await this.uploadingInfoModel.findOne({ sessionId: sessionId }).exec();
