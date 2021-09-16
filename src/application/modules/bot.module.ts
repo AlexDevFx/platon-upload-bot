@@ -17,7 +17,7 @@ import { PersonsStore } from '../../core/sheets/config/personsStore';
 import { SskEquipmentStore } from '../../core/sheets/config/sskEquipmentStore';
 import { JobsService } from '../../core/jobs/jobs.service';
 import { EventEmitter2, EventEmitterModule } from '@nestjs/event-emitter';
-import {UploadFilesSessionStorageService} from "../../core/dataStorage/uploadFilesSessionStorage.service";
+import { UploadFilesSessionStorageService } from '../../core/dataStorage/uploadFilesSessionStorage.service';
 
 @Module({
   imports: [
@@ -69,7 +69,7 @@ export class BotModule {
     private readonly personsStore: PersonsStore,
     private readonly eventEmitter: EventEmitter2,
     private readonly uploadedEquipmentStore: UploadedEquipmentStore,
-    private readonly uploadFilesSessionStorageService :UploadFilesSessionStorageService
+    private readonly uploadFilesSessionStorageService: UploadFilesSessionStorageService,
   ) {
     this.init(process.env.BOT_TOKEN).then(async () => {
       this.logger.log('Bot has been started');
@@ -86,7 +86,7 @@ export class BotModule {
     this.bot = new Telegraf(botToken);
     this.bot.use(session());
 
-    const uploadFilesScene = this.uploadFilesSceneBuilder.build();
+    const uploadFilesScene = this.uploadFilesSceneBuilder.build(this.bot);
     const stage = new Stage([uploadFilesScene]);
     this.bot.use(stage.middleware());
 
@@ -102,10 +102,10 @@ export class BotModule {
     });
 
     this.bot.command('quad', async (ctx, next) => {
-      await ctx.scene.enter(this.uploadFilesSceneBuilder.SceneName);
+      await this.uploadFilesSceneBuilder.enterScene(ctx);
     });
 
-    this.bot.action(/confUpl:/, async (ctx, next) => {
+    /*this.bot.action(/confUpl:/, async (ctx, next) => {
       if (ctx.updateType === 'callback_query' && ctx.update?.callback_query?.data) {
         const data = ctx.update.callback_query.data.split(':');
         const sessionId = data[1];
@@ -122,9 +122,9 @@ export class BotModule {
           await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
         });
       }
-    });
+    });*/
 
-    this.bot.action(/rejUpl:/, async (ctx, next) => {
+    /*this.bot.action(/rejUpl:/, async (ctx, next) => {
       if (ctx.updateType === 'callback_query' && ctx.update?.callback_query?.data) {
         const data = ctx.update.callback_query.data.split(':');
         const sessionId = data[1];
@@ -140,7 +140,7 @@ export class BotModule {
           await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
         });
       }
-    });
+    });*/
 
     this.bot.start(async ctx => {
       await ctx.reply(startMessage);

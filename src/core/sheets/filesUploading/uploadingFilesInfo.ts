@@ -1,4 +1,4 @@
-import {RequestStatus} from "../../filesUploading/userUploadingInfoDto";
+import { RequestStatus } from '../../filesUploading/userUploadingInfoDto';
 
 export class UploadingFilesInfo {
   files: UploadedFile[];

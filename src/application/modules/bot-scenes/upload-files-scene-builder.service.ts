@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import {BaseScene, Markup, Stage, Telegraf} from 'telegraf';
+import { BaseScene, Markup, Stage, Telegraf } from 'telegraf';
 import { SceneContextMessageUpdate } from 'telegraf/typings/stage';
 import * as fs from 'fs';
 import { LoggerService } from 'nest-logger';
@@ -13,7 +13,6 @@ import { IUploadedEquipment, UploadedEquipmentStore, UploadingType } from '../..
 import { v4 as uuidv4 } from 'uuid';
 import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
 import { JobsService } from '../../../core/jobs/jobs.service';
-import { RequestedFile, RequestStatus } from '../../../core/dataStorage/filesUploading/userUploadingInfoDto';
 import { PersonsStore, UserRoles } from '../../../core/sheets/config/personsStore';
 import { SskEquipmentStore } from '../../../core/sheets/config/sskEquipmentStore';
 import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
@@ -22,7 +21,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
 import { firstValueFrom, take } from 'rxjs';
 import moment = require('moment');
-import {TelegrafContext} from "telegraf/typings/context";
+import { TelegrafContext } from 'telegraf/typings/context';
+import { UploadFilesSessionStorageService } from '../../../core/dataStorage/uploadFilesSessionStorage.service';
+import { IUploadFilesSceneSession, UploadFilesSceneSession } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
+import { RequestedFile, RequestStatus } from '../../../core/filesUploading/userUploadingInfoDto';
 
 const { leave } = Stage;
 
@@ -52,6 +54,7 @@ export class UploadFilesSceneBuilder {
     private readonly personsStore: PersonsStore,
     private readonly sskEquipmentStore: SskEquipmentStore,
     private readonly eventEmitter: EventEmitter2,
+    private readonly uploadFilesSessionStorageService: UploadFilesSessionStorageService,
   ) {}
 
   private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
@@ -72,7 +75,7 @@ export class UploadFilesSceneBuilder {
   }
 
   private async uploadFile(file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<string> {
-    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const stepState = await this.getSession(ctx);
 
     if (!file) {
       await ctx.reply('Нет загруженного файла');
@@ -85,13 +88,14 @@ export class UploadFilesSceneBuilder {
 
     if (!stepState.uploadingInfo.folderUrl) {
       stepState.uploadingInfo.folderUrl = result.fileUrl;
+      await this.uploadFilesSessionStorageService.update(stepState);
     }
 
     return uploadResult.fileUrl;
   }
 
   private async sendFileForUploading(requestId: string, file: UploadedFile, ctx: SceneContextMessageUpdate): Promise<boolean> {
-    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const stepState = await this.getSession(ctx);
 
     if (!file) {
       await ctx.reply('Нет загруженного файла');
@@ -107,6 +111,7 @@ export class UploadFilesSceneBuilder {
       });
       if (uploadingInfo) {
         uploadingInfo.files.push(requestedFile);
+
         return await this.dbStorageService.update(uploadingInfo);
       }
     }
@@ -115,10 +120,11 @@ export class UploadFilesSceneBuilder {
   }
 
   private async cancelCommand(ctx: SceneContextMessageUpdate): Promise<void> {
-    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const stepState = await this.getSession(ctx);
     stepState.step = UploadFilesSteps.Cancelled;
+    await this.uploadFilesSessionStorageService.update(stepState);
     await ctx.reply('Команда отменена');
-    await ctx.scene.leave();
+    await this.leaveScene(ctx);
   }
 
   private async createAndShareFolder(sskNumber: string, ctx: SceneContextMessageUpdate): Promise<IUploadResult> {
@@ -151,9 +157,9 @@ export class UploadFilesSceneBuilder {
     const equipmentForUploading = await this.uploadedEquipmentStore.getData();
 
     if (!equipmentForUploading) return;
-    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const stepState = await this.getSession(ctx);
 
-    stepState.sessionId = await this.dbStorageService.insert({
+    await this.dbStorageService.insert({
       username: ctx.from.username,
       userId: ctx.from.id,
       files: [],
@@ -204,6 +210,7 @@ export class UploadFilesSceneBuilder {
         UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq);
       }
     }
+    await this.uploadFilesSessionStorageService.update(stepState);
   }
 
   private static addRequestToState(
@@ -248,7 +255,7 @@ export class UploadFilesSceneBuilder {
       return;
     }
 
-    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const stepState = await this.getSession(ctx);
     const newRecords: ISheetUploadRecord[] = [];
 
     await ctx.telegram.sendMessage(ctx.chat.id, 'Администратор принял все загруженные фото, благодарим!', { parse_mode: 'HTML' });
@@ -283,21 +290,22 @@ export class UploadFilesSceneBuilder {
 
     if (result) {
       stepState.step = UploadFilesSteps.UploadingConfirmed;
+      await this.uploadFilesSessionStorageService.update(stepState);
     }
   }
 
   private async sendNextRequest(ctx: SceneContextMessageUpdate): Promise<void> {
-    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const stepState = await this.getSession(ctx);
 
     if (!stepState.requestsToSend) return;
 
     const request = stepState.requestsToSend.shift();
-    await this.sendNextRequestMessage(request, ctx);
+    await this.sendNextRequestMessage(request, ctx, stepState);
     stepState.uploadingInfo.currentRequestIndex++;
+    await this.uploadFilesSessionStorageService.update(stepState);
   }
 
-  private async sendNextRequestMessage(request: RequestFile, ctx: SceneContextMessageUpdate): Promise<void> {
-    const stepState = ctx.scene.state as UploadFilesSceneState;
+  private async sendNextRequestMessage(request: RequestFile, ctx: SceneContextMessageUpdate, stepState: UploadFilesSceneSession): Promise<void> {
     await ctx.replyWithPhoto(
       { source: request.photoFile },
       {
@@ -314,7 +322,7 @@ export class UploadFilesSceneBuilder {
   }
 
   private async confirmUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
-    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const stepState = await this.getSession(ctx);
     const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
       person?.role !== UserRoles.Admin ||
@@ -365,13 +373,13 @@ export class UploadFilesSceneBuilder {
       stepState.requestsToSend.length < 1
     ) {
       await this.endRequestFilesForEquipment(sessionId, ctx);
-      await ctx.scene.leave();
+      await this.leaveScene(ctx);
     }
     return true;
   }
 
   private async rejectUploadRequest(ctx: SceneContextMessageUpdate, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
-    const stepState = ctx.scene.state as UploadFilesSceneState;
+    const stepState = await this.getSession(ctx);
     const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
       stepState.step === UploadFilesSteps.Enter ||
@@ -420,51 +428,68 @@ export class UploadFilesSceneBuilder {
     if (stepState.requestsToSend.length === 1 && stepState.step === UploadFilesSteps.Completed) await this.sendNextRequest(ctx);
 
     stepState.step = UploadFilesSteps.Uploading;
+    await this.uploadFilesSessionStorageService.update(stepState);
 
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
     else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
     return true;
   }
-  
+
+  public async enterScene(ctx: TelegrafContext): Promise<void> {
+    const person = await this.personsStore.getPersonByUserName(ctx.from.username);
+    const newSession = {
+      user: {
+        telegramId: ctx.from.id,
+        person: person,
+      },
+      step: UploadFilesSteps.Enter,
+      uploadingInfo: new UploadingFilesInfo(),
+      sessionId: UploadFilesSceneBuilder.getSessionId(ctx),
+      requestsToSend: [],
+    };
+    const existedSession = await this.uploadFilesSessionStorageService.find(newSession.sessionId);
+    if (existedSession) {
+      if (await this.uploadFilesSessionStorageService.delete(newSession.sessionId)) await this.uploadFilesSessionStorageService.insert(newSession);
+      else {
+        existedSession.user = newSession.user;
+        existedSession.step = newSession.step;
+        existedSession.uploadingInfo = newSession.uploadingInfo;
+        existedSession.requestsToSend = newSession.requestsToSend;
+      }
+    } else {
+      await this.uploadFilesSessionStorageService.insert(newSession);
+    }
+
+    await ctx.reply(
+      'Введите <b>номер (ид)</b> квартального ТО для загрузки фото',
+      Markup.inlineKeyboard([Markup.callbackButton('Отмена', 'Cancel')]).extra({ parse_mode: 'HTML' }),
+    );
+  }
+
+  private async leaveScene(ctx: TelegrafContext): Promise<void> {
+    await this.uploadFilesSessionStorageService.delete(UploadFilesSceneBuilder.getSessionId(ctx));
+  }
+
+  private static getSessionId(ctx: TelegrafContext): string {
+    return `${ctx.chat.id}:${ctx.from.id}`;
+  }
+
+  private async getSession(ctx: TelegrafContext): Promise<UploadFilesSceneSession> {
+    return await this.uploadFilesSessionStorageService.find(UploadFilesSceneBuilder.getSessionId(ctx));
+  }
+
   private bot;
 
   public build(bot: Telegraf<TelegrafContext>): BaseScene<SceneContextMessageUpdate> {
     const scene = new BaseScene(this.SceneName);
     bot = bot;
-    
-    scene.enter(async ctx => {
-      const person = await this.personsStore.getPersonByUserName(ctx.from.username);
-      ctx.scene.state = {
-        user: {
-          telegramId: ctx.from.id,
-          person: person,
-        },
-        step: UploadFilesSteps.Enter,
-        uploadingInfo: new UploadingFilesInfo(),
-        sessionId: '',
-        requestsToSend: [],
-      };
-      await ctx.reply(
-        'Введите <b>номер (ид)</b> квартального ТО для загрузки фото',
-        Markup.inlineKeyboard([Markup.callbackButton('Отмена', 'Cancel')]).extra({ parse_mode: 'HTML' }),
-      );
-    });
-
-    scene.leave(async (ctx, next) => {
-      const stepState = ctx.scene.state as UploadFilesSceneState;
-      if (stepState.step === UploadFilesSteps.Enter) {
-        await next();
-        return;
-      }
-      leave();
-    });
 
     this.bot.hears(/.+/gi, async (ctx, next) => {
       if (ctx.message.text.startsWith('/')) {
         await next();
         return;
       }
-      const stepState = ctx.scene.state as UploadFilesSceneState;
+      const stepState = await this.getSession(ctx);
 
       if (stepState.step === UploadFilesSteps.Enter) {
         if (!/^(\d+)$/g.test(ctx.message.text)) {
@@ -513,50 +538,53 @@ export class UploadFilesSceneBuilder {
         }
 
         stepState.step = UploadFilesSteps.Uploading;
+        await this.uploadFilesSessionStorageService.update(stepState);
         await this.startRequestFilesForEquipment(ctx);
       }
     });
 
-    scene.action('ConfirmId', async ctx => {
+    this.bot.action('ConfirmId', async ctx => {
       await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Да', 'ConfirmId')]]));
-      const stepState = ctx.scene.state as UploadFilesSceneState;
+      const stepState = await this.getSession(ctx);
       stepState.step = UploadFilesSteps.Uploading;
+      await this.uploadFilesSessionStorageService.update(stepState);
       await this.startRequestFilesForEquipment(ctx);
     });
 
-    scene.action('RejectId', async ctx => {
+    this.bot.action('RejectId', async ctx => {
       await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Нет', 'RejectId')]]));
-      await ctx.scene.reenter();
+      await this.enterScene(ctx);
     });
 
-    scene.action('Cancel', async ctx => {
+    this.bot.action('Cancel', async ctx => {
       await this.cancelCommand(ctx);
     });
 
-    scene.command('cancel', async ctx => {
+    this.bot.command('cancel', async ctx => {
       await this.cancelCommand(ctx);
     });
 
-    scene.command('quad', async ctx => {
-      const stepState = ctx.scene.state as UploadFilesSceneState;
-      if (stepState.step === UploadFilesSteps.UploadingConfirmed || stepState.step === UploadFilesSteps.Cancelled) {
-        await ctx.scene.reenter();
+    this.bot.command('quad', async ctx => {
+      const session = await this.getSession(ctx);
+
+      if (!session || session.step === UploadFilesSteps.UploadingConfirmed || session.step === UploadFilesSteps.Cancelled) {
+        await this.enterScene(ctx);
       } else {
         await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
       }
     });
 
-    scene.command('year', async ctx => {
+    this.bot.command('year', async ctx => {
       await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
     });
 
-    scene.on('photo', async ctx => {
+    this.bot.on('photo', async ctx => {
       await ctx.reply(
         'Фото принимаются только БЕЗ СЖАТИЯ". Чтобы отправить фото правильно, нужно нажать на скрепку справа от поля ввода сообщения, выделить фото и справа вверху экрана нажать на три точки и выбрать "Отправить без сжатия"',
       );
     });
 
-    scene.action(/confUpl:/, async ctx => {
+    this.bot.action(/confUpl:/, async ctx => {
       const data = ctx.callbackQuery.data.split(':');
       const sessionId = data[1];
       const requestId = data[2];
@@ -570,18 +598,20 @@ export class UploadFilesSceneBuilder {
       });
     });
 
-    scene.action(/rejUpl:/, async ctx => {
+    this.bot.action(/rejUpl:/, async ctx => {
       const data = ctx.callbackQuery.data.split(':');
       const sessionId = data[1];
       const requestId = data[2];
 
-      if(!(await this.rejectUploadRequest(ctx, {
-        username: ctx.from.username,
-        userId: ctx.from.id,
-        sessionId: sessionId,
-        requestId: requestId,
-        messageId: undefined,
-      }))) {
+      if (
+        !(await this.rejectUploadRequest(ctx, {
+          username: ctx.from.username,
+          userId: ctx.from.id,
+          sessionId: sessionId,
+          requestId: requestId,
+          messageId: undefined,
+        }))
+      ) {
         return;
       }
 
@@ -592,8 +622,8 @@ export class UploadFilesSceneBuilder {
       }
     });
 
-    scene.on('document', async ctx => {
-      const stepState = ctx.scene.state as UploadFilesSceneState;
+    this.bot.on('document', async ctx => {
+      const stepState = await this.getSession(ctx);
 
       if (!(stepState.step === UploadFilesSteps.Uploading || stepState.step === UploadFilesSteps.Completed)) return;
 
@@ -619,6 +649,8 @@ export class UploadFilesSceneBuilder {
           await this.sendNextRequest(ctx);
         } else {
           stepState.step = UploadFilesSteps.Completed;
+
+          await this.uploadFilesSessionStorageService.update(stepState);
           await ctx.reply(
             '<b>Фото приняты, благодарим! Дождитесь проверки всех фото администратором, если какое-то фото будет отклонено администратором, его нужно будет загрузить снова, изменив так, чтобы оно подходило под требования</b>',
             { parse_mode: 'HTML' },
@@ -626,7 +658,6 @@ export class UploadFilesSceneBuilder {
         }
       }
     });
-
     return scene;
   }
 }
