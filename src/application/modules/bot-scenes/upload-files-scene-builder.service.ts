@@ -470,7 +470,12 @@ export class UploadFilesSceneBuilder {
       }
       const stepState = await this.getSession(ctx);
 
-      if (stepState.step === UploadFilesSteps.Enter) {
+      if(!stepState){
+        await this.enterScene(ctx);
+        return;
+      }
+      
+      if (stepState?.step === UploadFilesSteps.Enter) {
         if (!/^(\d+)$/g.test(ctx.message.text)) {
           await ctx.reply(
             'Квартальное ТО с таким номером не найдено, введите корректный номер ТО или отмените команду',
