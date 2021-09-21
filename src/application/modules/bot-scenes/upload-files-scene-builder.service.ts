@@ -299,7 +299,7 @@ export class UploadFilesSceneBuilder {
   }
 
   private async confirmUploadRequest(ctx: TelegrafContext, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
-    const stepState = await this.getSession(ctx);
+    const stepState = await this.getSessionById(handleUploadRequest.sessionId);
     const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
       person?.role !== UserRoles.Admin ||
@@ -356,7 +356,7 @@ export class UploadFilesSceneBuilder {
   }
 
   private async rejectUploadRequest(ctx: TelegrafContext, handleUploadRequest: IAdminHandleUploadRequest): Promise<boolean> {
-    const stepState = await this.getSession(ctx);
+    const stepState = await this.getSessionById(handleUploadRequest.sessionId);
     const person = await this.personsStore.getPersonByUserName(handleUploadRequest.username);
     if (
       stepState.step === UploadFilesSteps.Enter ||
@@ -455,6 +455,10 @@ export class UploadFilesSceneBuilder {
 
   private async getSession(ctx: TelegrafContext): Promise<UploadFilesSceneSession> {
     return await this.uploadFilesSessionStorageService.find(UploadFilesSceneBuilder.getSessionId(ctx));
+  }
+
+  private async getSessionById(sessionId: string): Promise<UploadFilesSceneSession> {
+    return await this.uploadFilesSessionStorageService.find(sessionId);
   }
 
   private bot;
