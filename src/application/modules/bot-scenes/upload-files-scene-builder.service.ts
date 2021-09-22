@@ -469,7 +469,7 @@ export class UploadFilesSceneBuilder {
 
   public build(bot: Telegraf<TelegrafContext>): BaseScene<SceneContextMessageUpdate> {
     const scene = new BaseScene(this.SceneName);
-    bot = bot;
+    this.bot = bot;
 
     bot.hears(/.+/gi, async (ctx, next) => {
       if (ctx.message.text.startsWith('/')) {
