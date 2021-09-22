@@ -93,7 +93,7 @@ export class BotModule {
     this.bot.use(stage.middleware());
 
     this.bot.use(async (ctx, next) => {
-      if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
+      if (!ctx.chat?.type || ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
         await next();
         return;
       }

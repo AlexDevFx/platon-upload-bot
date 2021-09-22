@@ -340,7 +340,7 @@ export class UploadFilesSceneBuilder {
     }
 
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`confUplResult:${handleUploadRequest.messageId}`);
-    else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'confUpl:' + sessionId + ':' + requestId)]]));
+    else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'Approved:' + sessionId + ':' + requestId)]]));
 
     await this.dbStorageService.update(uploadingInfo);
 
@@ -408,11 +408,15 @@ export class UploadFilesSceneBuilder {
     await this.uploadFilesSessionStorageService.update(stepState);
 
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
-    else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'rejUpl:' + sessionId + ':' + requestId)]]));
+    else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'Rejected:' + sessionId + ':' + requestId)]]));
     return true;
   }
 
   public async enterScene(ctx: TelegrafContext): Promise<void> {
+    if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
+      await ctx.reply('Бот работает только в групповых чатах');
+      return;
+    }
     const person = await this.personsStore.getPersonByUserName(ctx.from.username);
     const newSession = {
       user: {
