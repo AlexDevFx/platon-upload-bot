@@ -479,7 +479,7 @@ export class UploadFilesSceneBuilder {
       const stepState = await this.getSession(ctx);
 
       if(!stepState){
-        await this.enterScene(ctx);
+        // await this.enterScene(ctx);
         return;
       }
       
