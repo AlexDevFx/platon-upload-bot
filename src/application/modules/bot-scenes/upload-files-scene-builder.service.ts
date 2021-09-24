@@ -104,8 +104,15 @@ export class UploadFilesSceneBuilder {
         size: file.size,
         url: file.url,
       });
-
-      stepState.uploadingInfo.files.push(requestedFile);
+      
+      let previousFile = stepState.uploadingInfo.files.find(e => e.id === requestId);
+      if(previousFile){
+        previousFile = requestedFile;
+      }
+      else{
+        stepState.uploadingInfo.files.push(requestedFile);
+      }
+      
       await this.uploadFilesSessionStorageService.update(stepState);
 
       if (uploadingInfo) {
@@ -166,13 +173,13 @@ export class UploadFilesSceneBuilder {
       sessionId: stepState.sessionId,
     });
 
-    this.eventEmitter.on('confUpl:' + stepState.sessionId, async (handleUploadRequest: IAdminHandleUploadRequest) => {
+    /*this.eventEmitter.on('confUpl:' + stepState.sessionId, async (handleUploadRequest: IAdminHandleUploadRequest) => {
       await this.confirmUploadRequest(ctx, handleUploadRequest);
     });
 
     this.eventEmitter.on('rejUpl:' + stepState.sessionId, async (handleUploadRequest: IAdminHandleUploadRequest) => {
       await this.rejectUploadRequest(ctx, handleUploadRequest);
-    });
+    });*/
 
     const sskEquipments = (await this.sskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
 
@@ -410,16 +417,14 @@ export class UploadFilesSceneBuilder {
     const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
 
     const newFileRequest = new RequestFile(
-      uuidv4()
-        .replace('-', '')
-        .substr(0, 8),
+      requestToSend.id,
       requestToSend.equipmentId,
       requestToSend.equipmentName,
       requestToSend.message,
       requestToSend.photoFile,
     );
-    stepState.uploadingInfo.requests = stepState.uploadingInfo.requests.filter(e => e.id !== requestId);
-    stepState.uploadingInfo.requests.push(newFileRequest);
+    // stepState.uploadingInfo.requests = stepState.uploadingInfo.requests.filter(e => e.id !== requestId);
+    //stepState.uploadingInfo.requests.push(newFileRequest);
     stepState.requestsToSend.unshift(newFileRequest);
 
     if (stepState.requestsToSend.length === 1 && stepState.step === UploadFilesSteps.Completed) await this.sendNextRequest(ctx);
@@ -557,7 +562,7 @@ export class UploadFilesSceneBuilder {
     });
 
     bot.action('ConfirmId', async ctx => {
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Да', 'ConfirmId')]]));
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Да', 'ConfirmedId')]]));
       const stepState = await this.getSession(ctx);
       stepState.step = UploadFilesSteps.Uploading;
       await this.uploadFilesSessionStorageService.update(stepState);
@@ -565,7 +570,7 @@ export class UploadFilesSceneBuilder {
     });
 
     bot.action('RejectId', async ctx => {
-      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Нет', 'RejectId')]]));
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Нет', 'RejectedId')]]));
       await this.enterScene(ctx);
     });
 
@@ -653,7 +658,7 @@ export class UploadFilesSceneBuilder {
         if (fileUrl) {
           // const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
           await this.sendFileForUploading(
-            stepState.uploadingInfo.currentRequestId,
+             stepState.uploadingInfo.currentRequestId,
             {
               url: fileUrl,
               name: fileName,
