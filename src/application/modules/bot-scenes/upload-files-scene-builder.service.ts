@@ -24,7 +24,7 @@ import moment = require('moment');
 import { TelegrafContext } from 'telegraf/typings/context';
 import { UploadFilesSessionStorageService } from '../../../core/dataStorage/uploadFilesSessionStorage.service';
 import { UploadFilesSceneSession } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
-import { RequestedFile, RequestStatus } from '../../../core/filesUploading/userUploadingInfoDto';
+import {FileData, RequestedFile, RequestStatus} from '../../../core/filesUploading/userUploadingInfoDto';
 
 @Injectable()
 export class UploadFilesSceneBuilder {
@@ -69,8 +69,8 @@ export class UploadFilesSceneBuilder {
       await ctx.reply('Нет загруженного файла');
       return undefined;
     }
-    
-    try{
+
+    try {
       const result = await this.createAndShareFolder(stepState.uploadingInfo.sskNumber, ctx);
       await this.downloadImage(file.url, file.name);
       const uploadResult = await this.fileStorageService.upload(file.name, file.size, result.fileId, null);
@@ -80,17 +80,16 @@ export class UploadFilesSceneBuilder {
         await this.uploadFilesSessionStorageService.update(stepState);
       }
       return uploadResult.fileUrl;
-    }
-    catch(e){
+    } catch (e) {
       this.logger.error(`File uploading error: ${file.url}, ${file.name}. Try: ${tryNumber}`, e);
-      if(tryNumber < 10) {
-        return await this.uploadFile(file, ctx, tryNumber+1);
+      if (tryNumber < 10) {
+        return await this.uploadFile(file, ctx, tryNumber + 1);
       }
     }
     return undefined;
   }
 
-  private async sendFileForUploading(requestId: string, file: UploadedFile, ctx: TelegrafContext): Promise<boolean> {
+  private async sendFileForUploading(requestId: string, file: FileData, ctx: TelegrafContext): Promise<boolean> {
     const stepState = await this.getSession(ctx);
 
     if (!file) {
@@ -105,6 +104,10 @@ export class UploadFilesSceneBuilder {
         size: file.size,
         url: file.url,
       });
+
+      stepState.uploadingInfo.files.push(requestedFile);
+      await this.uploadFilesSessionStorageService.update(stepState);
+
       if (uploadingInfo) {
         uploadingInfo.files.push(requestedFile);
 
@@ -160,6 +163,7 @@ export class UploadFilesSceneBuilder {
       userId: ctx.from.id,
       files: [],
       maintenanceId: stepState.uploadingInfo.maintenanceId,
+      sessionId: stepState.sessionId,
     });
 
     this.eventEmitter.on('confUpl:' + stepState.sessionId, async (handleUploadRequest: IAdminHandleUploadRequest) => {
@@ -174,6 +178,7 @@ export class UploadFilesSceneBuilder {
 
     const addedEquipments = [];
     stepState.uploadingInfo.requests = [];
+    stepState.uploadingInfo.files = [];
     stepState.uploadingInfo.currentRequestIndex = 0;
     stepState.requestsToSend = [];
     let n = 0;
@@ -243,15 +248,14 @@ export class UploadFilesSceneBuilder {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return;
     }
-
-    const filesForUploading = uploadingInfo.files?.filter(e => e.status === RequestStatus.Confirmed);
+    const stepState = await this.getSessionById(sessionId);
+    const filesForUploading = stepState.uploadingInfo?.files?.filter(e => e.status === RequestStatus.Confirmed);
 
     if (!filesForUploading) {
       this.logger.error(`Не найдены данные файлов для загрузки: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return;
     }
 
-    const stepState = await this.getSession(ctx);
     const newRecords: ISheetUploadRecord[] = [];
 
     await ctx.telegram.sendMessage(ctx.chat.id, 'Администратор принял все загруженные фото, благодарим!', { parse_mode: 'HTML' });
@@ -262,7 +266,7 @@ export class UploadFilesSceneBuilder {
       maintenanceId: stepState.uploadingInfo.maintenanceId,
       fromChatId: ctx.chat.id,
       engineerPersonId: stepState.user.person.id,
-      sskNumber: stepState.uploadingInfo.sskNumber
+      sskNumber: stepState.uploadingInfo.sskNumber,
     });
 
     if (result) {
@@ -316,36 +320,42 @@ export class UploadFilesSceneBuilder {
       return false;
     }
 
-    const uploadingInfo = await this.dbStorageService.findBySessionId(sessionId);
+    const uploadingInfo = stepState.uploadingInfo;
 
     if (!uploadingInfo) {
-      this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+      this.logger.error(
+        `Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}. Data: ${JSON.stringify(stepState)}`,
+      );
       return false;
     }
 
-    const request = uploadingInfo.files.find(e => e.id === requestId && e.status == RequestStatus.Unknown);
+    const request = uploadingInfo.requests.find(e => e.id === requestId);
 
     if (!request) {
-      this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+      this.logger.error(
+        `Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}. Data: ${JSON.stringify(
+          uploadingInfo,
+        )}`,
+      );
       return false;
     }
 
     request.status = RequestStatus.Confirmed;
     request.confirmatorId = person.id;
 
-    const sentRequest = stepState.uploadingInfo.requests.find(e => e.id === requestId);
+    const sentFile = stepState.uploadingInfo.files.find(e => e.id === requestId);
 
-    if (sentRequest) {
-      sentRequest.status = RequestStatus.Confirmed;
+    if (sentFile) {
+      sentFile.status = RequestStatus.Confirmed;
     }
+
+    await this.uploadFilesSessionStorageService.update(stepState);
 
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`confUplResult:${handleUploadRequest.messageId}`);
     else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Принято', 'Approved:' + sessionId + ':' + requestId)]]));
 
-    await this.dbStorageService.update(uploadingInfo);
-
     if (
-      stepState.uploadingInfo.requests?.every(e => e.status === RequestStatus.Confirmed) &&
+      stepState.uploadingInfo.files?.every(e => e.status === RequestStatus.Confirmed || e.status === RequestStatus.Rejected) &&
       stepState.step === UploadFilesSteps.Completed &&
       stepState.requestsToSend.length < 1
     ) {
@@ -372,21 +382,31 @@ export class UploadFilesSceneBuilder {
       return false;
     }
 
-    const uploadingInfo = await this.dbStorageService.findBySessionId(sessionId);
+    const uploadingInfo = stepState.uploadingInfo;
 
     if (!uploadingInfo) {
       this.logger.error(`Не найдены данные загрузки для пользователя: ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
       return false;
     }
 
-    const request = uploadingInfo.files.find(e => e.id === requestId && e.status == RequestStatus.Unknown);
+    const request = uploadingInfo.requests.find(e => e.id === requestId);
 
     if (!request) {
-      this.logger.error(`Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}`);
+      this.logger.error(
+        `Не найдены данные файла для загрузки:${requestId}, ${ctx.from.username}, ${ctx.from.id}, ${sessionId}. Data: ${JSON.stringify(
+          uploadingInfo,
+        )}`,
+      );
       return false;
     }
     request.status = RequestStatus.Rejected;
-    await this.dbStorageService.update(uploadingInfo);
+
+    const sentFile = stepState.uploadingInfo.files.find(e => e.id === requestId);
+
+    if (sentFile) {
+      sentFile.status = RequestStatus.Rejected;
+    }
+
     const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
 
     const newFileRequest = new RequestFile(
@@ -408,7 +428,8 @@ export class UploadFilesSceneBuilder {
     await this.uploadFilesSessionStorageService.update(stepState);
 
     if (handleUploadRequest.messageId) this.eventEmitter.emit(`rejUplResult:${handleUploadRequest.messageId}`);
-    else await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'Rejected:' + sessionId + ':' + requestId)]]));
+    else
+      await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Отклонено', 'Rejected:' + sessionId + ':' + requestId)]]));
     return true;
   }
 
@@ -478,11 +499,11 @@ export class UploadFilesSceneBuilder {
       }
       const stepState = await this.getSession(ctx);
 
-      if(!stepState){
+      if (!stepState) {
         // await this.enterScene(ctx);
         return;
       }
-      
+
       if (stepState?.step === UploadFilesSteps.Enter) {
         if (!/^(\d+)$/g.test(ctx.message.text)) {
           await ctx.reply(
@@ -622,7 +643,7 @@ export class UploadFilesSceneBuilder {
     bot.on('document', async ctx => {
       const stepState = await this.getSession(ctx);
 
-      if (!(stepState.step === UploadFilesSteps.Uploading || stepState.step === UploadFilesSteps.Completed)) return;
+      if (!(stepState?.step === UploadFilesSteps.Uploading || stepState?.step === UploadFilesSteps.Completed)) return;
 
       const doc = ctx.message.document;
       if (doc) {
@@ -630,9 +651,9 @@ export class UploadFilesSceneBuilder {
         const fileName = fileUrl.split('/').pop();
 
         if (fileUrl) {
-          const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
+          // const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
           await this.sendFileForUploading(
-            request.id,
+            stepState.uploadingInfo.currentRequestId,
             {
               url: fileUrl,
               name: fileName,

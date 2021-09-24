@@ -7,7 +7,7 @@ import { Agenda } from 'agenda';
 import { Telegraf } from 'telegraf';
 import { TelegrafContext } from 'telegraf/typings/context';
 import { IUploadMaintenanceParams } from './iupload-maintenance.params';
-import {RequestedFile} from "../filesUploading/userUploadingInfoDto";
+import { RequestedFile } from '../filesUploading/userUploadingInfoDto';
 
 export interface MessageData {
   chatId: number;
@@ -15,7 +15,7 @@ export interface MessageData {
 }
 
 interface IStartUploadingParams {
-  files: RequestedFile[],
+  files: RequestedFile[];
   sessionId: string;
   maintenanceId: string;
   fromChatId: number;

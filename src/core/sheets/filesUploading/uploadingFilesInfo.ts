@@ -1,7 +1,7 @@
-import { RequestStatus } from '../../filesUploading/userUploadingInfoDto';
+import { FileData, RequestedFile, RequestStatus } from '../../filesUploading/userUploadingInfoDto';
 
 export class UploadingFilesInfo {
-  files: UploadedFile[];
+  files: RequestedFile[];
   maintenanceId: string;
   sskNumber: string;
   folderUrl: string;
@@ -14,6 +14,11 @@ export class UploadedFile {
   url: string;
   name: string;
   size: number;
+  id: string;
+  equipmentId: string;
+  equipmentName: string;
+  status: number;
+  confirmatorId: string;
 }
 
 export class RequestFile {

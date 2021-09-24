@@ -7,4 +7,5 @@ export class UserUploadingInfo extends Document {
   public readonly userId: number;
   public readonly confirmatorId: string;
   public readonly maintenanceId: string;
+  public readonly sessionId: string;
 }

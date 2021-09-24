@@ -12,6 +12,7 @@ export class UserUploadingInfoDto {
   public username: string;
   public userId: number;
   public maintenanceId: string;
+  public sessionId: string;
 }
 
 export class FileRequestData {
