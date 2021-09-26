@@ -522,11 +522,6 @@ export class UploadFilesSceneBuilder {
       }
       const stepState = await this.getSession(ctx);
 
-      if(!stepState){
-        await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
-        return undefined;
-      }
-
       if (!stepState) {
         // await this.enterScene(ctx);
         return;
