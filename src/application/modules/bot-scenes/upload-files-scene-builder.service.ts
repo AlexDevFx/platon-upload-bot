@@ -64,6 +64,11 @@ export class UploadFilesSceneBuilder {
 
   private async uploadFile(file: UploadedFile, ctx: TelegrafContext, tryNumber: number = 0): Promise<string> {
     const stepState = await this.getSession(ctx);
+    
+    if(!stepState){
+      await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
+      return undefined;
+    }
 
     if (!file) {
       await ctx.reply('Нет загруженного файла');
@@ -127,8 +132,11 @@ export class UploadFilesSceneBuilder {
 
   private async cancelCommand(ctx: TelegrafContext): Promise<void> {
     const stepState = await this.getSession(ctx);
-    stepState.step = UploadFilesSteps.Cancelled;
-    await this.uploadFilesSessionStorageService.update(stepState);
+    if(stepState){
+      stepState.step = UploadFilesSteps.Cancelled;
+      await this.uploadFilesSessionStorageService.update(stepState);
+    }
+   
     await ctx.reply('Команда отменена');
     await this.leaveScene(ctx);
   }
@@ -164,6 +172,11 @@ export class UploadFilesSceneBuilder {
 
     if (!equipmentForUploading) return;
     const stepState = await this.getSession(ctx);
+
+    if(!stepState){
+      await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
+      return undefined;
+    }
 
     await this.dbStorageService.insert({
       username: ctx.from.username,
@@ -284,6 +297,11 @@ export class UploadFilesSceneBuilder {
 
   private async sendNextRequest(ctx: TelegrafContext): Promise<void> {
     const stepState = await this.getSession(ctx);
+
+    if(!stepState){
+      await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
+      return undefined;
+    }
 
     if (!stepState.requestsToSend) return;
 
@@ -503,6 +521,11 @@ export class UploadFilesSceneBuilder {
         return;
       }
       const stepState = await this.getSession(ctx);
+
+      if(!stepState){
+        await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
+        return undefined;
+      }
 
       if (!stepState) {
         // await this.enterScene(ctx);
