@@ -108,7 +108,7 @@ export class UploadFilesSceneBuilder {
         name: file.name,
         size: file.size,
         url: file.url,
-      });
+      }, request.index);
       
       let previousFile = stepState.uploadingInfo.files.find(e => e.id === requestId);
       if(previousFile){
@@ -241,6 +241,7 @@ export class UploadFilesSceneBuilder {
     state: UploadFilesSceneState,
     equipment: IUploadedEquipment,
   ): void {
+    let i = 1;
     for (let exml of equipment.examples) {
       const requestFile = new RequestFile(
         uuidv4()
@@ -250,6 +251,7 @@ export class UploadFilesSceneBuilder {
         equipment.name,
         `${message}${info}${exml.description}`,
         exml.url,
+        i++
       );
       state.uploadingInfo.requests.push(requestFile);
       state.requestsToSend.push(requestFile);
@@ -440,6 +442,7 @@ export class UploadFilesSceneBuilder {
       requestToSend.equipmentName,
       requestToSend.message,
       requestToSend.photoFile,
+      requestToSend.index  
     );
     // stepState.uploadingInfo.requests = stepState.uploadingInfo.requests.filter(e => e.id !== requestId);
     //stepState.uploadingInfo.requests.push(newFileRequest);

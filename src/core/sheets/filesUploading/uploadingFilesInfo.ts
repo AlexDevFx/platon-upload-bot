@@ -29,13 +29,15 @@ export class RequestFile {
   public confirmatorId: string;
   public photoFile: string;
   public status: RequestStatus;
+  public index: number;
 
-  constructor(id: string, equipmentId: string, equipmentName: string, message: string, photoFile: string) {
+  constructor(id: string, equipmentId: string, equipmentName: string, message: string, photoFile: string, index: number) {
     this.id = id;
     this.equipmentId = equipmentId;
     this.equipmentName = equipmentName;
     this.message = message;
     this.photoFile = photoFile;
     this.status = RequestStatus.Unknown;
+    this.index = index;
   }
 }
