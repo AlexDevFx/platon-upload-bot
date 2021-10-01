@@ -79,7 +79,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       if(messageData.fromChatId && messageData.files?.length > 0){
         let message = `Список файлов, которые не удалось загрузить для ТО <b>${messageData.maintenanceId}</b> ССК-<b>${messageData.sskNumber}</b>`;
         for(const file of messageData.files){
-          message += `<b>${file.equipmentName}(${file.index})</b>, id: ${file.equipmentId}, url: ${file.file.url}\n`;
+          message += `<b>${file.equipmentName}</b>(${file.index}), id: ${file.equipmentId}, url: ${file.file.url}\n`;
         }
         await this.bot.telegram.sendMessage(messageData.fromChatId, message, { parse_mode: 'HTML' });
       }
