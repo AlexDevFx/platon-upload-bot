@@ -20,7 +20,7 @@ interface ISskEquipment {
 export class SskEquipmentStore extends CacheDataStore<ISskEquipment> {
   constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {
     super();
-    this.updateTimeOut = 2*3600000;
+    this.updateTimeOut = 2 * 3600000;
   }
 
   protected async loadData(): Promise<void> {

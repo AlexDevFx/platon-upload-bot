@@ -3,6 +3,11 @@ import { RequestFile, UploadingFilesInfo } from '../../../sheets/filesUploading/
 import { UploadFilesSteps } from '../../../../application/modules/bot-scenes/UploadQuadMaintenanceScene';
 import { Document } from 'mongoose';
 
+export enum UploadType {
+  Quad,
+  Year,
+}
+
 export interface IUploadFilesSceneSession {
   user: {
     telegramId: number;
@@ -12,6 +17,7 @@ export interface IUploadFilesSceneSession {
   uploadingInfo: UploadingFilesInfo;
   step: UploadFilesSteps;
   requestsToSend: RequestFile[];
+  uploadType: UploadType;
 }
 
 export class UploadFilesSceneSession extends Document implements IUploadFilesSceneSession {
@@ -23,4 +29,5 @@ export class UploadFilesSceneSession extends Document implements IUploadFilesSce
   uploadingInfo: UploadingFilesInfo;
   step: UploadFilesSteps;
   requestsToSend: RequestFile[];
+  uploadType: UploadType;
 }

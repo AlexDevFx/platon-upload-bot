@@ -31,7 +31,7 @@ export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment> {
     private readonly fileStorageService: FileStorageService,
   ) {
     super();
-    this.updateTimeOut = 6*3600000;
+    this.updateTimeOut = 6 * 3600000;
   }
 
   protected async loadData(): Promise<void> {

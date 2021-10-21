@@ -21,7 +21,7 @@ export interface IPerson {
 export class PersonsStore extends CacheDataStore<IPerson> {
   constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {
     super();
-    this.updateTimeOut = 6*3600000;
+    this.updateTimeOut = 6 * 3600000;
   }
 
   public async getPersonByUserName(username: string): Promise<IPerson> {

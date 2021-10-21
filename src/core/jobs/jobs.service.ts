@@ -76,9 +76,9 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
 
     this.agenda.define('sendNotFoundFilesToBot', async (job, done) => {
       const messageData = job.attrs.data as IStartUploadingParams;
-      if(messageData.fromChatId && messageData.files?.length > 0){
+      if (messageData.fromChatId && messageData.files?.length > 0) {
         let message = `Список файлов, которые не удалось загрузить для ТО <b>${messageData.maintenanceId}</b> ССК-<b>${messageData.sskNumber}</b>`;
-        for(const file of messageData.files){
+        for (const file of messageData.files) {
           message += `<b>${file.equipmentName}</b>(${file.index}), id: ${file.equipmentId}, url: ${file.file.url}\n`;
         }
         await this.bot.telegram.sendMessage(messageData.fromChatId, message, { parse_mode: 'HTML' });

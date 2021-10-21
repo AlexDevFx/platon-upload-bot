@@ -1,5 +1,5 @@
 import * as mongoose from 'mongoose';
-import {FileData} from "../../../filesUploading/userUploadingInfoDto";
+import { FileData } from '../../../filesUploading/userUploadingInfoDto';
 
 export const UploadFilesSceneSessionSchema = new mongoose.Schema({
   requestsToSend: [
@@ -11,7 +11,7 @@ export const UploadFilesSceneSessionSchema = new mongoose.Schema({
       confirmatorId: String,
       photoFile: String,
       status: Number,
-      index: Number
+      index: Number,
     },
   ],
   user: {
@@ -25,20 +25,23 @@ export const UploadFilesSceneSessionSchema = new mongoose.Schema({
   },
   sessionId: String,
   step: Number,
+  uploadType: Number,
   uploadingInfo: {
-    files: [{
-      id: String,
-      equipmentId: String,
-      equipmentName: String,
-      status: Number,
-      file: {
-        url: String,
-        name: String,
-        size: Number,
+    files: [
+      {
+        id: String,
+        equipmentId: String,
+        equipmentName: String,
+        status: Number,
+        file: {
+          url: String,
+          name: String,
+          size: Number,
+        },
+        confirmatorId: String,
+        index: Number,
       },
-      confirmatorId: String,
-      index: Number
-    }],
+    ],
     maintenanceId: String,
     sskNumber: String,
     folderUrl: String,
@@ -52,7 +55,7 @@ export const UploadFilesSceneSessionSchema = new mongoose.Schema({
         confirmatorId: String,
         photoFile: String,
         status: Number,
-        index: Number
+        index: Number,
       },
     ],
     currentRequestId: String,

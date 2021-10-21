@@ -23,8 +23,8 @@ import { firstValueFrom, take } from 'rxjs';
 import moment = require('moment');
 import { TelegrafContext } from 'telegraf/typings/context';
 import { UploadFilesSessionStorageService } from '../../../core/dataStorage/uploadFilesSessionStorage.service';
-import { UploadFilesSceneSession } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
-import {FileData, RequestedFile, RequestStatus} from '../../../core/filesUploading/userUploadingInfoDto';
+import { UploadFilesSceneSession, UploadType } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
+import { FileData, RequestedFile, RequestStatus } from '../../../core/filesUploading/userUploadingInfoDto';
 
 @Injectable()
 export class UploadFilesSceneBuilder {
@@ -64,8 +64,8 @@ export class UploadFilesSceneBuilder {
 
   private async uploadFile(file: UploadedFile, ctx: TelegrafContext, tryNumber: number = 0): Promise<string> {
     const stepState = await this.getSession(ctx);
-    
-    if(!stepState){
+
+    if (!stepState) {
       await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
       return undefined;
     }
@@ -104,20 +104,25 @@ export class UploadFilesSceneBuilder {
     const request = stepState.uploadingInfo.requests.find(e => e.id === requestId);
     if (request) {
       const uploadingInfo = await this.dbStorageService.findBySessionId(stepState.sessionId);
-      const requestedFile = new RequestedFile(requestId, request.equipmentId, request.equipmentName, {
-        name: file.name,
-        size: file.size,
-        url: file.url,
-      }, request.index);
-      
+      const requestedFile = new RequestedFile(
+        requestId,
+        request.equipmentId,
+        request.equipmentName,
+        {
+          name: file.name,
+          size: file.size,
+          url: file.url,
+        },
+        request.index,
+      );
+
       let previousFile = stepState.uploadingInfo.files.find(e => e.id === requestId);
-      if(previousFile){
+      if (previousFile) {
         previousFile = requestedFile;
-      }
-      else{
+      } else {
         stepState.uploadingInfo.files.push(requestedFile);
       }
-      
+
       await this.uploadFilesSessionStorageService.update(stepState);
 
       if (uploadingInfo) {
@@ -132,11 +137,11 @@ export class UploadFilesSceneBuilder {
 
   private async cancelCommand(ctx: TelegrafContext): Promise<void> {
     const stepState = await this.getSession(ctx);
-    if(stepState){
+    if (stepState) {
       stepState.step = UploadFilesSteps.Cancelled;
       await this.uploadFilesSessionStorageService.update(stepState);
     }
-   
+
     await ctx.reply('Команда отменена');
     await this.leaveScene(ctx);
   }
@@ -173,7 +178,7 @@ export class UploadFilesSceneBuilder {
     if (!equipmentForUploading) return;
     const stepState = await this.getSession(ctx);
 
-    if(!stepState){
+    if (!stepState) {
       await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
       return undefined;
     }
@@ -251,7 +256,7 @@ export class UploadFilesSceneBuilder {
         equipment.name,
         `${message}${info}${exml.description}`,
         exml.url,
-        i++
+        i++,
       );
       state.uploadingInfo.requests.push(requestFile);
       state.requestsToSend.push(requestFile);
@@ -300,7 +305,7 @@ export class UploadFilesSceneBuilder {
   private async sendNextRequest(ctx: TelegrafContext): Promise<void> {
     const stepState = await this.getSession(ctx);
 
-    if(!stepState){
+    if (!stepState) {
       await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
       return undefined;
     }
@@ -442,10 +447,9 @@ export class UploadFilesSceneBuilder {
       requestToSend.equipmentName,
       requestToSend.message,
       requestToSend.photoFile,
-      requestToSend.index  
+      requestToSend.index,
     );
-    // stepState.uploadingInfo.requests = stepState.uploadingInfo.requests.filter(e => e.id !== requestId);
-    //stepState.uploadingInfo.requests.push(newFileRequest);
+
     stepState.requestsToSend.unshift(newFileRequest);
 
     if (stepState.requestsToSend.length === 1 && stepState.step === UploadFilesSteps.Completed) await this.sendNextRequest(ctx);
@@ -474,6 +478,7 @@ export class UploadFilesSceneBuilder {
       uploadingInfo: new UploadingFilesInfo(),
       sessionId: UploadFilesSceneBuilder.getSessionId(ctx),
       requestsToSend: [],
+      uploadType: UploadType.Quad,
     };
     const existedSession = await this.uploadFilesSessionStorageService.find(newSession.sessionId);
     if (existedSession) {
@@ -526,7 +531,6 @@ export class UploadFilesSceneBuilder {
       const stepState = await this.getSession(ctx);
 
       if (!stepState) {
-        // await this.enterScene(ctx);
         return;
       }
 
@@ -679,7 +683,7 @@ export class UploadFilesSceneBuilder {
         if (fileUrl) {
           // const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
           await this.sendFileForUploading(
-             stepState.uploadingInfo.currentRequestId,
+            stepState.uploadingInfo.currentRequestId,
             {
               url: fileUrl,
               name: fileName,
