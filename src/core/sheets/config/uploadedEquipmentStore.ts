@@ -19,6 +19,7 @@ export enum UploadingType {
 
 export interface IUploadedEquipment {
   name: string;
+  code: string;
   type: UploadingType;
   examples: IPhotoExample[];
 }
@@ -75,6 +76,7 @@ export class UploadedEquipmentStore extends CacheDataStore<IUploadedEquipment> {
 
         uploadedEquipment.push({
           name: r.values[maintenanceUploadingSheet.getColumnIndex(maintenanceUploadingSheet.equipmentRequestedNameColumn)],
+          code: '',
           type: type === 'ССК' ? UploadingType.Ssk : type === 'Все' ? UploadingType.All : UploadingType.Undefined,
           examples: examples,
         });

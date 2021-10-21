@@ -263,7 +263,7 @@ export class UploadFilesSceneBuilder {
     }
   }
 
-  private async startRequestFilesForEquipment(ctx: TelegrafContext): Promise<void> {
+  private async startQuadRequestFilesForEquipment(ctx: TelegrafContext): Promise<void> {
     await this.createRequestsForFiles(ctx);
     await this.sendNextRequest(ctx);
   }
@@ -463,7 +463,7 @@ export class UploadFilesSceneBuilder {
     return true;
   }
 
-  public async enterScene(ctx: TelegrafContext): Promise<void> {
+  public async enterQuadScene(ctx: TelegrafContext): Promise<void> {
     if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
       await ctx.reply('Бот работает только в групповых чатах');
       return;
@@ -582,7 +582,7 @@ export class UploadFilesSceneBuilder {
 
         stepState.step = UploadFilesSteps.Uploading;
         await this.uploadFilesSessionStorageService.update(stepState);
-        await this.startRequestFilesForEquipment(ctx);
+        await this.startQuadRequestFilesForEquipment(ctx);
       }
     });
 
@@ -591,12 +591,12 @@ export class UploadFilesSceneBuilder {
       const stepState = await this.getSession(ctx);
       stepState.step = UploadFilesSteps.Uploading;
       await this.uploadFilesSessionStorageService.update(stepState);
-      await this.startRequestFilesForEquipment(ctx);
+      await this.startQuadRequestFilesForEquipment(ctx);
     });
 
     bot.action('RejectId', async ctx => {
       await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('❌ Нет', 'RejectedId')]]));
-      await this.enterScene(ctx);
+      await this.enterQuadScene(ctx);
     });
 
     bot.action('Cancel', async ctx => {
@@ -616,7 +616,7 @@ export class UploadFilesSceneBuilder {
         session.step === UploadFilesSteps.Cancelled ||
         session.step === UploadFilesSteps.Completed
       ) {
-        await this.enterScene(ctx);
+        await this.enterQuadScene(ctx);
       } else {
         await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
       }

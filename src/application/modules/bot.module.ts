@@ -1,11 +1,10 @@
-import { Telegraf, session, Stage, Markup } from 'telegraf';
+import { Telegraf, session, Stage } from 'telegraf';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerService } from 'nest-logger';
 import { LoggerModule } from './logger.module';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigurationService } from '../../core/config/configuration.service';
-import { UploadFilesSceneBuilder } from './bot-scenes/upload-files-scene-builder.service';
 import { UploadedEquipmentStore } from '../../core/sheets/config/uploadedEquipmentStore';
 import { SheetsService } from '../../core/sheets/sheets.service';
 import { FileStorageService } from '../../core/sheets/filesStorage/file-storage.service';
@@ -19,6 +18,8 @@ import { JobsService } from '../../core/jobs/jobs.service';
 import { EventEmitter2, EventEmitterModule } from '@nestjs/event-emitter';
 import { UploadFilesSessionStorageService } from '../../core/dataStorage/uploadFilesSessionStorage.service';
 import { uploadFilesSceneSessionProvider } from '../../core/dataStorage/models/filesUploading/uploadFilesSceneSession.provider';
+import {YearUploadingEquipmentStore} from "../../core/sheets/config/yearUploadingEquipmentStore";
+import { UploadFilesSceneBuilder } from "./bot-scenes/uploadFilesSceneBuilder.service";
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { uploadFilesSceneSessionProvider } from '../../core/dataStorage/models/f
     UploadFilesSceneBuilder,
     ConfigurationService,
     UploadedEquipmentStore,
+    YearUploadingEquipmentStore,
     SheetsService,
     FileStorageService,
     DbStorageService,
@@ -70,8 +72,7 @@ export class BotModule {
     private readonly dbStorageService: DbStorageService,
     private readonly personsStore: PersonsStore,
     private readonly eventEmitter: EventEmitter2,
-    private readonly uploadedEquipmentStore: UploadedEquipmentStore,
-    private readonly uploadFilesSessionStorageService: UploadFilesSessionStorageService,
+    private readonly uploadedEquipmentStore: UploadedEquipmentStore
   ) {
     this.init(process.env.BOT_TOKEN).then(async () => {
       this.logger.log('Bot has been started');
@@ -104,7 +105,7 @@ export class BotModule {
     });
 
     this.bot.command('quad', async (ctx, next) => {
-      await this.uploadFilesSceneBuilder.enterScene(ctx);
+      await this.uploadFilesSceneBuilder.enterQuadScene(ctx);
     });
 
     /*this.bot.action(/confUpl:/, async (ctx, next) => {
