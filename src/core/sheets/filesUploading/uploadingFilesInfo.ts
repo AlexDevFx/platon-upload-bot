@@ -16,6 +16,7 @@ export class UploadedFile {
   size: number;
   id: string;
   equipmentId: string;
+  code: string;
   equipmentName: string;
   status: number;
   confirmatorId: string;
@@ -24,6 +25,7 @@ export class UploadedFile {
 export class RequestFile {
   public id: string;
   public equipmentId: string;
+  public code: string;
   public equipmentName: string;
   public message: string;
   public confirmatorId: string;
@@ -31,9 +33,10 @@ export class RequestFile {
   public status: RequestStatus;
   public index: number;
 
-  constructor(id: string, equipmentId: string, equipmentName: string, message: string, photoFile: string, index: number) {
+  constructor(id: string, equipmentId: string, equipmentName: string, code: string, message: string, photoFile: string, index: number) {
     this.id = id;
     this.equipmentId = equipmentId;
+    this.code = code;
     this.equipmentName = equipmentName;
     this.message = message;
     this.photoFile = photoFile;

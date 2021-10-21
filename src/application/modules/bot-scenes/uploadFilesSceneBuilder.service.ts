@@ -25,6 +25,7 @@ import { TelegrafContext } from 'telegraf/typings/context';
 import { UploadFilesSessionStorageService } from '../../../core/dataStorage/uploadFilesSessionStorage.service';
 import { UploadFilesSceneSession, UploadType } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
 import { FileData, RequestedFile, RequestStatus } from '../../../core/filesUploading/userUploadingInfoDto';
+import {YearUploadingEquipmentStore} from "../../../core/sheets/config/yearUploadingEquipmentStore";
 
 @Injectable()
 export class UploadFilesSceneBuilder {
@@ -43,6 +44,7 @@ export class UploadFilesSceneBuilder {
     private readonly sskEquipmentStore: SskEquipmentStore,
     private readonly eventEmitter: EventEmitter2,
     private readonly uploadFilesSessionStorageService: UploadFilesSessionStorageService,
+    private readonly yearUploadingEquipmentStore: YearUploadingEquipmentStore
   ) {}
 
   private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
@@ -172,7 +174,7 @@ export class UploadFilesSceneBuilder {
     return result;
   }
 
-  private async createRequestsForFiles(ctx: TelegrafContext): Promise<void> {
+  private async createQuadRequestsForFiles(ctx: TelegrafContext): Promise<void> {
     const equipmentForUploading = await this.uploadedEquipmentStore.getData();
 
     if (!equipmentForUploading) return;
@@ -239,6 +241,56 @@ export class UploadFilesSceneBuilder {
     await this.uploadFilesSessionStorageService.update(stepState);
   }
 
+  private async createYearRequestsForFiles(ctx: TelegrafContext): Promise<void> {
+    const equipmentForUploading = await this.yearUploadingEquipmentStore.getData();
+
+    if (!equipmentForUploading) return;
+    const stepState = await this.getSession(ctx);
+
+    if (!stepState) {
+      await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
+      return undefined;
+    }
+
+    await this.dbStorageService.insert({
+      username: ctx.from.username,
+      userId: ctx.from.id,
+      files: [],
+      maintenanceId: stepState.uploadingInfo.maintenanceId,
+      sessionId: stepState.sessionId,
+    });
+
+    const sskEquipments = (await this.sskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
+
+    const addedEquipments = [];
+    stepState.uploadingInfo.requests = [];
+    stepState.uploadingInfo.files = [];
+    stepState.uploadingInfo.currentRequestIndex = 0;
+    stepState.requestsToSend = [];
+    let n = 0;
+
+    for (let eq of equipmentForUploading) {
+      if (eq.type === UploadingType.Undefined) continue;
+      n++;
+
+      let message = `<b>${eq.name}</b>\n`;
+      let additionalInfo = '';
+      if (eq.type === UploadingType.Ssk) {
+        let sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
+        while (sskEquipment) {
+          addedEquipments.push(sskEquipment.id);
+         
+          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq);
+          sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
+        }
+      }
+      if (eq.type === UploadingType.All) {
+        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq);
+      }
+    }
+    await this.uploadFilesSessionStorageService.update(stepState);
+  }
+
   private static addRequestToState(
     equipmentId: string,
     info: string,
@@ -253,7 +305,8 @@ export class UploadFilesSceneBuilder {
           .replace('-', '')
           .substr(0, 8),
         equipmentId,
-        equipment.name,
+        equipment.name, 
+        equipment.code,
         `${message}${info}${exml.description}`,
         exml.url,
         i++,
@@ -264,7 +317,7 @@ export class UploadFilesSceneBuilder {
   }
 
   private async startQuadRequestFilesForEquipment(ctx: TelegrafContext): Promise<void> {
-    await this.createRequestsForFiles(ctx);
+    await this.createQuadRequestsForFiles(ctx);
     await this.sendNextRequest(ctx);
   }
 
@@ -445,6 +498,7 @@ export class UploadFilesSceneBuilder {
       requestToSend.id,
       requestToSend.equipmentId,
       requestToSend.equipmentName,
+      requestToSend.code,
       requestToSend.message,
       requestToSend.photoFile,
       requestToSend.index,
