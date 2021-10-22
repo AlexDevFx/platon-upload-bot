@@ -1,37 +1,30 @@
-import {Injectable} from '@nestjs/common';
-import {HttpService} from '@nestjs/axios';
-import {BaseScene, Markup, Telegraf} from 'telegraf';
-import {SceneContextMessageUpdate} from 'telegraf/typings/stage';
+import { Injectable } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { BaseScene, Markup, Telegraf } from 'telegraf';
+import { SceneContextMessageUpdate } from 'telegraf/typings/stage';
 import * as fs from 'fs';
-import {LoggerService} from 'nest-logger';
-import {FileStorageService, IUploadResult} from '../../../core/sheets/filesStorage/file-storage.service';
-import {SheetsService} from '../../../core/sheets/sheets.service';
-import {ConfigurationService} from '../../../core/config/configuration.service';
-import {RequestFile, UploadedFile, UploadingFilesInfo} from '../../../core/sheets/filesUploading/uploadingFilesInfo';
-import {ColumnParam, CompareType, FilterOptions} from '../../../core/sheets/filterOptions';
-import {
-  IUploadedEquipment,
-  UploadedEquipmentStore,
-  UploadingType
-} from '../../../core/sheets/config/uploadedEquipmentStore';
-import {v4 as uuidv4} from 'uuid';
-import {DbStorageService} from '../../../core/dataStorage/dbStorage.service';
-import {JobsService} from '../../../core/jobs/jobs.service';
-import {PersonsStore, UserRoles} from '../../../core/sheets/config/personsStore';
-import {SskEquipmentStore} from '../../../core/sheets/config/sskEquipmentStore';
-import {ISheetUploadRecord} from '../../../core/jobs/isheet-upload.record';
-import {UploadFilesSceneState, UploadFilesSteps} from './UploadQuadMaintenanceScene';
-import {EventEmitter2} from '@nestjs/event-emitter';
-import {IAdminHandleUploadRequest} from '../../../core/event/adminHandleUploadRequest';
-import {firstValueFrom, take} from 'rxjs';
-import {TelegrafContext} from 'telegraf/typings/context';
-import {UploadFilesSessionStorageService} from '../../../core/dataStorage/uploadFilesSessionStorage.service';
-import {
-  UploadFilesSceneSession,
-  UploadType
-} from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
-import {FileData, RequestedFile, RequestStatus} from '../../../core/filesUploading/userUploadingInfoDto';
-import {YearUploadingEquipmentStore} from '../../../core/sheets/config/yearUploadingEquipmentStore';
+import { LoggerService } from 'nest-logger';
+import { FileStorageService, IUploadResult } from '../../../core/sheets/filesStorage/file-storage.service';
+import { SheetsService } from '../../../core/sheets/sheets.service';
+import { ConfigurationService } from '../../../core/config/configuration.service';
+import { RequestFile, UploadedFile, UploadingFilesInfo } from '../../../core/sheets/filesUploading/uploadingFilesInfo';
+import { ColumnParam, CompareType, FilterOptions } from '../../../core/sheets/filterOptions';
+import { IUploadedEquipment, UploadedEquipmentStore, UploadingType } from '../../../core/sheets/config/uploadedEquipmentStore';
+import { v4 as uuidv4 } from 'uuid';
+import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
+import { JobsService } from '../../../core/jobs/jobs.service';
+import { PersonsStore, UserRoles } from '../../../core/sheets/config/personsStore';
+import { SskEquipmentStore } from '../../../core/sheets/config/sskEquipmentStore';
+import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
+import { UploadFilesSceneState, UploadFilesSteps } from './UploadQuadMaintenanceScene';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
+import { firstValueFrom, take } from 'rxjs';
+import { TelegrafContext } from 'telegraf/typings/context';
+import { UploadFilesSessionStorageService } from '../../../core/dataStorage/uploadFilesSessionStorage.service';
+import { UploadFilesSceneSession, UploadType } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
+import { FileData, RequestedFile, RequestStatus } from '../../../core/filesUploading/userUploadingInfoDto';
+import { YearUploadingEquipmentStore } from '../../../core/sheets/config/yearUploadingEquipmentStore';
 import moment = require('moment');
 
 @Injectable()
@@ -117,6 +110,7 @@ export class UploadFilesSceneBuilder {
         requestId,
         request.equipmentId,
         request.equipmentName,
+        request.code,
         {
           name: file.name,
           size: file.size,
@@ -200,14 +194,6 @@ export class UploadFilesSceneBuilder {
       sessionId: stepState.sessionId,
     });
 
-    /*this.eventEmitter.on('confUpl:' + stepState.sessionId, async (handleUploadRequest: IAdminHandleUploadRequest) => {
-      await this.confirmUploadRequest(ctx, handleUploadRequest);
-    });
-
-    this.eventEmitter.on('rejUpl:' + stepState.sessionId, async (handleUploadRequest: IAdminHandleUploadRequest) => {
-      await this.rejectUploadRequest(ctx, handleUploadRequest);
-    });*/
-
     const sskEquipments = (await this.sskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
 
     const addedEquipments = [];
@@ -218,7 +204,7 @@ export class UploadFilesSceneBuilder {
     let n = 0;
 
     for (let eq of equipmentForUploading) {
-      //if (n > 3) break; //for debugging
+      if (n > 3) break; //for debugging
       if (eq.type === UploadingType.Undefined) continue;
 
       n++;
@@ -351,15 +337,27 @@ export class UploadFilesSceneBuilder {
     const newRecords: ISheetUploadRecord[] = [];
 
     await ctx.telegram.sendMessage(ctx.chat.id, 'Администратор принял все загруженные фото, благодарим!', { parse_mode: 'HTML' });
-
-    const result = await this.jobsService.startUploadingFiles({
-      files: filesForUploading,
-      sessionId: sessionId,
-      maintenanceId: stepState.uploadingInfo.maintenanceId,
-      fromChatId: ctx.chat.id,
-      engineerPersonId: stepState.user.person.id,
-      sskNumber: stepState.uploadingInfo.sskNumber,
-    });
+    let result = undefined;
+    if (stepState.uploadType === UploadType.Year) {
+      result = await this.jobsService.startYearUploadingFiles({
+        files: filesForUploading,
+        sessionId: sessionId,
+        maintenanceId: stepState.uploadingInfo.maintenanceId,
+        fromChatId: ctx.chat.id,
+        engineerPersonId: stepState.user.person.id,
+        sskNumber: stepState.uploadingInfo.sskNumber,
+      });
+    }
+    if (stepState.uploadType === UploadType.Quad) {
+      result = await this.jobsService.startQuadUploadingFiles({
+        files: filesForUploading,
+        sessionId: sessionId,
+        maintenanceId: stepState.uploadingInfo.maintenanceId,
+        fromChatId: ctx.chat.id,
+        engineerPersonId: stepState.user.person.id,
+        sskNumber: stepState.uploadingInfo.sskNumber,
+      });
+    }
 
     if (result) {
       stepState.step = UploadFilesSteps.UploadingConfirmed;
@@ -444,8 +442,7 @@ export class UploadFilesSceneBuilder {
 
     if (sentFile) {
       sentFile.status = RequestStatus.Confirmed;
-    }
-    else{
+    } else {
       return;
     }
 
@@ -505,8 +502,7 @@ export class UploadFilesSceneBuilder {
 
     if (sentFile) {
       sentFile.status = RequestStatus.Rejected;
-    }
-    else{
+    } else {
       return;
     }
 
@@ -669,8 +665,8 @@ export class UploadFilesSceneBuilder {
       const stepState = await this.getSession(ctx);
       stepState.step = UploadFilesSteps.Uploading;
       await this.uploadFilesSessionStorageService.update(stepState);
-      if(stepState.uploadType === UploadType.Quad) await this.startQuadRequestFilesForEquipment(ctx);
-      if(stepState.uploadType === UploadType.Year) await this.startYearRequestFilesForEquipment(ctx);
+      if (stepState.uploadType === UploadType.Quad) await this.startQuadRequestFilesForEquipment(ctx);
+      if (stepState.uploadType === UploadType.Year) await this.startYearRequestFilesForEquipment(ctx);
     });
 
     bot.action('RejectId', async ctx => {

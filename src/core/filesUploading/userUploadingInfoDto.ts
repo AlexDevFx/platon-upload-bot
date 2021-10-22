@@ -35,18 +35,20 @@ export class RequestedFile {
   public id: string;
   public equipmentId: string;
   public equipmentName: string;
+  public code: string;
   public status: number;
   public file: FileData;
   public confirmatorId: string;
   public index: number;
 
-  constructor(id: string, equipmentId: string, equipmentName: string, file: FileData, index: number) {
+  constructor(id: string, equipmentId: string, equipmentName: string, fieldCode: string, file: FileData, index: number) {
     this.id = id;
     this.equipmentId = equipmentId;
     this.equipmentName = equipmentName;
     this.status = RequestStatus.Unknown;
     this.file = file;
     this.index = index;
+    this.code = fieldCode;
   }
 }
 

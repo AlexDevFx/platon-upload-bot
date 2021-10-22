@@ -67,6 +67,14 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     return (await this.agenda.now('startUploadingFiles', params)) !== undefined;
   }
 
+  public async startQuadUploadingFiles(params: IStartUploadingParams): Promise<boolean> {
+    return (await this.agenda.now('startQuadUploadingFiles', params)) !== undefined;
+  }
+
+  public async startYearUploadingFiles(params: IStartUploadingParams): Promise<boolean> {
+    return (await this.agenda.now('startYearUploadingFiles', params)) !== undefined;
+  }
+
   private defineJobs() {
     this.agenda.define('uploadBotSendHtmlMessageToChat', async (job, done) => {
       const messageData = job.attrs.data as MessageData;
