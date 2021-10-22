@@ -26,6 +26,7 @@ import { UploadFilesSceneSession, UploadType } from '../../../core/dataStorage/m
 import { FileData, RequestedFile, RequestStatus } from '../../../core/filesUploading/userUploadingInfoDto';
 import { YearUploadingEquipmentStore } from '../../../core/sheets/config/yearUploadingEquipmentStore';
 import moment = require('moment');
+import { YearSskEquipmentStore } from '../../../core/sheets/config/yearSskEquipmentStore';
 
 @Injectable()
 export class UploadFilesSceneBuilder {
@@ -42,6 +43,7 @@ export class UploadFilesSceneBuilder {
     private readonly jobsService: JobsService,
     private readonly personsStore: PersonsStore,
     private readonly sskEquipmentStore: SskEquipmentStore,
+    private readonly yearSskEquipmentStore: YearSskEquipmentStore,
     private readonly eventEmitter: EventEmitter2,
     private readonly uploadFilesSessionStorageService: UploadFilesSessionStorageService,
     private readonly yearUploadingEquipmentStore: YearUploadingEquipmentStore,
@@ -204,8 +206,8 @@ export class UploadFilesSceneBuilder {
     let n = 0;
 
     for (let eq of equipmentForUploading) {
-      if (n > 3) break; //for debugging
-      if (eq.type === UploadingType.Undefined) continue;
+      //if (n > 3) break; //for debugging
+      if (eq.type === UploadingType.Undefined || eq.examples.length < 1) continue;
 
       n++;
 
@@ -253,7 +255,7 @@ export class UploadFilesSceneBuilder {
       sessionId: stepState.sessionId,
     });
 
-    const sskEquipments = (await this.sskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
+    const sskEquipments = (await this.yearSskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
 
     const addedEquipments = [];
     stepState.uploadingInfo.requests = [];
@@ -263,9 +265,10 @@ export class UploadFilesSceneBuilder {
     let n = 0;
 
     for (let eq of equipmentForUploading) {
-      if (eq.type === UploadingType.Undefined) continue;
+      //if (n > 3) break; //for debugging
+      if (eq.type === UploadingType.Undefined || eq.examples.length < 1) continue;
       n++;
-
+      //if(n != 3) continue; //for debugging
       let message = `<b>${eq.name}</b>\n`;
       let additionalInfo = '';
       if (eq.type === UploadingType.Ssk) {
@@ -436,12 +439,13 @@ export class UploadFilesSceneBuilder {
     }
 
     request.status = RequestStatus.Confirmed;
-    request.confirmatorId = person.id;
+    request.confirmatorId = person.id ?? person.telegramUsername;
 
     const sentFile = stepState.uploadingInfo.files.find(e => e.id === requestId);
 
     if (sentFile) {
       sentFile.status = RequestStatus.Confirmed;
+      sentFile.confirmatorId = person.id ?? person.telegramUsername;
     } else {
       return;
     }

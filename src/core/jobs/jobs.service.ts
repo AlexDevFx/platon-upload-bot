@@ -47,7 +47,10 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       tlsCAFile: jobsDbConfig.tlsCAFile,
     };
 
-    this.agenda = new Agenda({ db: { address: url, collection: 'platon-upload-jobs', options: options }, processEvery: '5 seconds' });
+    this.agenda = new Agenda({
+      db: { address: url, collection: configService.appconfig.jobs.uploadJobsCollection, options: options },
+      processEvery: '5 seconds',
+    });
     logger.info('Agenda has been initialized.');
   }
 

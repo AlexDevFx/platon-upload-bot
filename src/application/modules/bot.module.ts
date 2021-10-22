@@ -20,6 +20,7 @@ import { UploadFilesSessionStorageService } from '../../core/dataStorage/uploadF
 import { uploadFilesSceneSessionProvider } from '../../core/dataStorage/models/filesUploading/uploadFilesSceneSession.provider';
 import { YearUploadingEquipmentStore } from '../../core/sheets/config/yearUploadingEquipmentStore';
 import { UploadFilesSceneBuilder } from './bot-scenes/uploadFilesSceneBuilder.service';
+import { YearSskEquipmentStore } from '../../core/sheets/config/yearSskEquipmentStore';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { UploadFilesSceneBuilder } from './bot-scenes/uploadFilesSceneBuilder.se
     UploadFilesSessionStorageService,
     PersonsStore,
     SskEquipmentStore,
+    YearSskEquipmentStore,
     ...userUploadingInfoProviders,
     ...uploadFilesSceneSessionProvider,
   ],

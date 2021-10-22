@@ -9,6 +9,7 @@ export interface JobsConfig {
   dbConnectionString: string;
   repeatNewRowJobPeriodSeconds: number;
   db: DbConfig;
+  uploadJobsCollection: string;
 }
 
 export interface DbConfig {

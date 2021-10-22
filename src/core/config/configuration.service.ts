@@ -18,6 +18,7 @@ export class ConfigurationService {
   appconfig: Appconfig = JSON.parse(fs.readFileSync('../config/appconfig.json', 'utf8')) as Appconfig;
   maintenanceSheet: MaintenanceSheet = new MaintenanceSheet(JSON.parse(fs.readFileSync('../config/maintenanceSheet.json', 'utf8')));
   equipmentSheet: EquipmentSheet = new EquipmentSheet(JSON.parse(fs.readFileSync('../config/equipmentSheet.json', 'utf8')));
+  yearEquipmentSheet: EquipmentSheet = new EquipmentSheet(JSON.parse(fs.readFileSync('../config/yearEquipmentSheet.json', 'utf8')));
   maintenanceUploadingSheet: MaintenanceUploadingSheet = new MaintenanceUploadingSheet(
     JSON.parse(fs.readFileSync('../config/maintenanceUploadingSheet.json', 'utf8')),
   );

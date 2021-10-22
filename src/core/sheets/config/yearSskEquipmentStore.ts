@@ -17,14 +17,14 @@ interface ISskEquipment {
 }
 
 @Injectable()
-export class SskEquipmentStore extends CacheDataStore<ISskEquipment> {
+export class YearSskEquipmentStore extends CacheDataStore<ISskEquipment> {
   constructor(private readonly sheetsService: SheetsService, private readonly configurationService: ConfigurationService) {
     super();
     this.updateTimeOut = 4 * 3600000;
   }
 
   protected async loadData(): Promise<void> {
-    const equipmentSheet = this.configurationService.equipmentSheet;
+    const equipmentSheet = this.configurationService.yearEquipmentSheet;
     const columnParams: ColumnParam[] = [];
 
     columnParams.push({
