@@ -5,7 +5,7 @@ import { EquipmentSheet } from '../sheets/config/equipmentSheet';
 import { MaintenanceSheet } from '../sheets/config/maintenanceSheet';
 import { MaintenanceUploadingSheet } from '../sheets/config/maintenanceUploadingSheet';
 import { PersonsSheet } from '../sheets/config/personsSheet';
-import {YearMaintenanceUploadingSheet} from "../sheets/config/yearMaintenanceUploadingSheet";
+import { YearMaintenanceUploadingSheet } from '../sheets/config/yearMaintenanceUploadingSheet';
 
 @Injectable()
 export class ConfigurationService {
@@ -22,7 +22,7 @@ export class ConfigurationService {
     JSON.parse(fs.readFileSync('../config/maintenanceUploadingSheet.json', 'utf8')),
   );
   yearMaintenanceUploadingSheet: YearMaintenanceUploadingSheet = new YearMaintenanceUploadingSheet(
-      JSON.parse(fs.readFileSync('../config/yearMaintenanceUploadingSheet.json', 'utf8')),
+    JSON.parse(fs.readFileSync('../config/yearMaintenanceUploadingSheet.json', 'utf8')),
   );
   personsSheet: PersonsSheet = new PersonsSheet(JSON.parse(fs.readFileSync('../config/personsSheet.json', 'utf8')));
 }

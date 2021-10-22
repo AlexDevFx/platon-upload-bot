@@ -1,31 +1,38 @@
-import { Injectable } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { BaseScene, Markup, Stage, Telegraf } from 'telegraf';
-import { SceneContextMessageUpdate } from 'telegraf/typings/stage';
+import {Injectable} from '@nestjs/common';
+import {HttpService} from '@nestjs/axios';
+import {BaseScene, Markup, Telegraf} from 'telegraf';
+import {SceneContextMessageUpdate} from 'telegraf/typings/stage';
 import * as fs from 'fs';
-import { LoggerService } from 'nest-logger';
-import { FileStorageService, IUploadResult } from '../../../core/sheets/filesStorage/file-storage.service';
-import { SheetsService } from '../../../core/sheets/sheets.service';
-import { ConfigurationService } from '../../../core/config/configuration.service';
-import { RequestFile, UploadedFile, UploadingFilesInfo } from '../../../core/sheets/filesUploading/uploadingFilesInfo';
-import { ColumnParam, CompareType, FilterOptions } from '../../../core/sheets/filterOptions';
-import { IUploadedEquipment, UploadedEquipmentStore, UploadingType } from '../../../core/sheets/config/uploadedEquipmentStore';
-import { v4 as uuidv4 } from 'uuid';
-import { DbStorageService } from '../../../core/dataStorage/dbStorage.service';
-import { JobsService } from '../../../core/jobs/jobs.service';
-import { PersonsStore, UserRoles } from '../../../core/sheets/config/personsStore';
-import { SskEquipmentStore } from '../../../core/sheets/config/sskEquipmentStore';
-import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
-import { UploadFilesSceneState, UploadFilesSteps } from './UploadQuadMaintenanceScene';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
-import { firstValueFrom, take } from 'rxjs';
+import {LoggerService} from 'nest-logger';
+import {FileStorageService, IUploadResult} from '../../../core/sheets/filesStorage/file-storage.service';
+import {SheetsService} from '../../../core/sheets/sheets.service';
+import {ConfigurationService} from '../../../core/config/configuration.service';
+import {RequestFile, UploadedFile, UploadingFilesInfo} from '../../../core/sheets/filesUploading/uploadingFilesInfo';
+import {ColumnParam, CompareType, FilterOptions} from '../../../core/sheets/filterOptions';
+import {
+  IUploadedEquipment,
+  UploadedEquipmentStore,
+  UploadingType
+} from '../../../core/sheets/config/uploadedEquipmentStore';
+import {v4 as uuidv4} from 'uuid';
+import {DbStorageService} from '../../../core/dataStorage/dbStorage.service';
+import {JobsService} from '../../../core/jobs/jobs.service';
+import {PersonsStore, UserRoles} from '../../../core/sheets/config/personsStore';
+import {SskEquipmentStore} from '../../../core/sheets/config/sskEquipmentStore';
+import {ISheetUploadRecord} from '../../../core/jobs/isheet-upload.record';
+import {UploadFilesSceneState, UploadFilesSteps} from './UploadQuadMaintenanceScene';
+import {EventEmitter2} from '@nestjs/event-emitter';
+import {IAdminHandleUploadRequest} from '../../../core/event/adminHandleUploadRequest';
+import {firstValueFrom, take} from 'rxjs';
+import {TelegrafContext} from 'telegraf/typings/context';
+import {UploadFilesSessionStorageService} from '../../../core/dataStorage/uploadFilesSessionStorage.service';
+import {
+  UploadFilesSceneSession,
+  UploadType
+} from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
+import {FileData, RequestedFile, RequestStatus} from '../../../core/filesUploading/userUploadingInfoDto';
+import {YearUploadingEquipmentStore} from '../../../core/sheets/config/yearUploadingEquipmentStore';
 import moment = require('moment');
-import { TelegrafContext } from 'telegraf/typings/context';
-import { UploadFilesSessionStorageService } from '../../../core/dataStorage/uploadFilesSessionStorage.service';
-import { UploadFilesSceneSession, UploadType } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
-import { FileData, RequestedFile, RequestStatus } from '../../../core/filesUploading/userUploadingInfoDto';
-import {YearUploadingEquipmentStore} from "../../../core/sheets/config/yearUploadingEquipmentStore";
 
 @Injectable()
 export class UploadFilesSceneBuilder {
@@ -44,7 +51,7 @@ export class UploadFilesSceneBuilder {
     private readonly sskEquipmentStore: SskEquipmentStore,
     private readonly eventEmitter: EventEmitter2,
     private readonly uploadFilesSessionStorageService: UploadFilesSessionStorageService,
-    private readonly yearUploadingEquipmentStore: YearUploadingEquipmentStore
+    private readonly yearUploadingEquipmentStore: YearUploadingEquipmentStore,
   ) {}
 
   private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
@@ -279,7 +286,7 @@ export class UploadFilesSceneBuilder {
         let sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
         while (sskEquipment) {
           addedEquipments.push(sskEquipment.id);
-         
+
           UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq);
           sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
         }
@@ -305,7 +312,7 @@ export class UploadFilesSceneBuilder {
           .replace('-', '')
           .substr(0, 8),
         equipmentId,
-        equipment.name, 
+        equipment.name,
         equipment.code,
         `${message}${info}${exml.description}`,
         exml.url,
@@ -318,6 +325,11 @@ export class UploadFilesSceneBuilder {
 
   private async startQuadRequestFilesForEquipment(ctx: TelegrafContext): Promise<void> {
     await this.createQuadRequestsForFiles(ctx);
+    await this.sendNextRequest(ctx);
+  }
+
+  private async startYearRequestFilesForEquipment(ctx: TelegrafContext): Promise<void> {
+    await this.createYearRequestsForFiles(ctx);
     await this.sendNextRequest(ctx);
   }
 
@@ -433,6 +445,9 @@ export class UploadFilesSceneBuilder {
     if (sentFile) {
       sentFile.status = RequestStatus.Confirmed;
     }
+    else{
+      return;
+    }
 
     await this.uploadFilesSessionStorageService.update(stepState);
 
@@ -491,6 +506,9 @@ export class UploadFilesSceneBuilder {
     if (sentFile) {
       sentFile.status = RequestStatus.Rejected;
     }
+    else{
+      return;
+    }
 
     const requestToSend = stepState.uploadingInfo.requests.find(e => e.id === requestId);
 
@@ -517,7 +535,7 @@ export class UploadFilesSceneBuilder {
     return true;
   }
 
-  public async enterQuadScene(ctx: TelegrafContext): Promise<void> {
+  private async enterScene(ctx: TelegrafContext, uploadType: UploadType, message: string): Promise<void> {
     if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
       await ctx.reply('Бот работает только в групповых чатах');
       return;
@@ -532,7 +550,7 @@ export class UploadFilesSceneBuilder {
       uploadingInfo: new UploadingFilesInfo(),
       sessionId: UploadFilesSceneBuilder.getSessionId(ctx),
       requestsToSend: [],
-      uploadType: UploadType.Quad,
+      uploadType: uploadType,
     };
     const existedSession = await this.uploadFilesSessionStorageService.find(newSession.sessionId);
     if (existedSession) {
@@ -549,10 +567,15 @@ export class UploadFilesSceneBuilder {
       await this.uploadFilesSessionStorageService.insert(newSession);
     }
 
-    await ctx.reply(
-      'Введите <b>номер (ид)</b> квартального ТО для загрузки фото',
-      Markup.inlineKeyboard([Markup.callbackButton('Отмена', 'Cancel')]).extra({ parse_mode: 'HTML' }),
-    );
+    await ctx.reply(message, Markup.inlineKeyboard([Markup.callbackButton('Отмена', 'Cancel')]).extra({ parse_mode: 'HTML' }));
+  }
+
+  public async enterQuadScene(ctx: TelegrafContext): Promise<void> {
+    await this.enterScene(ctx, UploadType.Quad, 'Введите <b>номер (ид)</b> квартального ТО для загрузки фото');
+  }
+
+  public async enterYearScene(ctx: TelegrafContext): Promise<void> {
+    await this.enterScene(ctx, UploadType.Year, 'Введите <b>номер (ид)</b> годового ТО для загрузки фото');
   }
 
   private async leaveScene(ctx: TelegrafContext): Promise<void> {
@@ -591,7 +614,7 @@ export class UploadFilesSceneBuilder {
       if (stepState?.step === UploadFilesSteps.Enter) {
         if (!/^(\d+)$/g.test(ctx.message.text)) {
           await ctx.reply(
-            'Квартальное ТО с таким номером не найдено, введите корректный номер ТО или отмените команду',
+            'ТО с таким номером не найдено, введите корректный номер ТО или отмените команду',
             Markup.inlineKeyboard([Markup.callbackButton('Отмена', 'Cancel')]).extra(),
           );
           return;
@@ -615,7 +638,7 @@ export class UploadFilesSceneBuilder {
         const foundRow = await this.sheetsService.getFirstRow(filterOptions);
         if (!foundRow) {
           await ctx.reply(
-            'Квартальное ТО с таким номером не найдено, введите корректный номер ТО или отмените команду',
+            'ТО с таким номером не найдено, введите корректный номер ТО или отмените команду',
             Markup.inlineKeyboard([Markup.callbackButton('Отмена', 'Cancel')]).extra(),
           );
           return;
@@ -626,7 +649,7 @@ export class UploadFilesSceneBuilder {
           stepState.uploadingInfo.sskNumber = sskNumber;
           const dateIndex = maintenanceSheet.getColumnIndex(maintenanceSheet.maintenanceDateColumn);
           await ctx.reply(
-            `Вы хотите загрузить фото для Квартального ТО для ССК-<b>${sskNumber}</b>.` + ` Дата проведения <b>${foundRow.values[dateIndex]}</b>`,
+            `Вы хотите загрузить фото для ТО для ССК-<b>${sskNumber}</b>.` + ` Дата проведения <b>${foundRow.values[dateIndex]}</b>`,
             Markup.inlineKeyboard([Markup.callbackButton('✅ Да', 'ConfirmId'), Markup.callbackButton('❌ Нет', 'RejectId')]).extra({
               parse_mode: 'HTML',
             }),
@@ -636,7 +659,8 @@ export class UploadFilesSceneBuilder {
 
         stepState.step = UploadFilesSteps.Uploading;
         await this.uploadFilesSessionStorageService.update(stepState);
-        await this.startQuadRequestFilesForEquipment(ctx);
+        if (stepState.uploadType === UploadType.Quad) await this.startQuadRequestFilesForEquipment(ctx);
+        if (stepState.uploadType === UploadType.Year) await this.startYearRequestFilesForEquipment(ctx);
       }
     });
 
@@ -645,7 +669,8 @@ export class UploadFilesSceneBuilder {
       const stepState = await this.getSession(ctx);
       stepState.step = UploadFilesSteps.Uploading;
       await this.uploadFilesSessionStorageService.update(stepState);
-      await this.startQuadRequestFilesForEquipment(ctx);
+      if(stepState.uploadType === UploadType.Quad) await this.startQuadRequestFilesForEquipment(ctx);
+      if(stepState.uploadType === UploadType.Year) await this.startYearRequestFilesForEquipment(ctx);
     });
 
     bot.action('RejectId', async ctx => {
@@ -677,7 +702,18 @@ export class UploadFilesSceneBuilder {
     });
 
     bot.command('year', async ctx => {
-      await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
+      const session = await this.getSession(ctx);
+
+      if (
+        !session ||
+        session.step === UploadFilesSteps.UploadingConfirmed ||
+        session.step === UploadFilesSteps.Cancelled ||
+        session.step === UploadFilesSteps.Completed
+      ) {
+        await this.enterYearScene(ctx);
+      } else {
+        await ctx.reply('Завершите предыдущую загрузку сообщений или отмените, нажав на команду /cancel');
+      }
     });
 
     bot.on('photo', async ctx => {

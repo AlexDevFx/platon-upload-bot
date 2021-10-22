@@ -18,8 +18,8 @@ import { JobsService } from '../../core/jobs/jobs.service';
 import { EventEmitter2, EventEmitterModule } from '@nestjs/event-emitter';
 import { UploadFilesSessionStorageService } from '../../core/dataStorage/uploadFilesSessionStorage.service';
 import { uploadFilesSceneSessionProvider } from '../../core/dataStorage/models/filesUploading/uploadFilesSceneSession.provider';
-import {YearUploadingEquipmentStore} from "../../core/sheets/config/yearUploadingEquipmentStore";
-import { UploadFilesSceneBuilder } from "./bot-scenes/uploadFilesSceneBuilder.service";
+import { YearUploadingEquipmentStore } from '../../core/sheets/config/yearUploadingEquipmentStore';
+import { UploadFilesSceneBuilder } from './bot-scenes/uploadFilesSceneBuilder.service';
 
 @Module({
   imports: [
@@ -72,7 +72,7 @@ export class BotModule {
     private readonly dbStorageService: DbStorageService,
     private readonly personsStore: PersonsStore,
     private readonly eventEmitter: EventEmitter2,
-    private readonly uploadedEquipmentStore: UploadedEquipmentStore
+    private readonly uploadedEquipmentStore: UploadedEquipmentStore,
   ) {
     this.init(process.env.BOT_TOKEN).then(async () => {
       this.logger.log('Bot has been started');
@@ -106,6 +106,10 @@ export class BotModule {
 
     this.bot.command('quad', async (ctx, next) => {
       await this.uploadFilesSceneBuilder.enterQuadScene(ctx);
+    });
+
+    this.bot.command('year', async (ctx, next) => {
+      await this.uploadFilesSceneBuilder.enterYearScene(ctx);
     });
 
     /*this.bot.action(/confUpl:/, async (ctx, next) => {
