@@ -1,12 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { IUploadFilesSceneSession, UploadFilesSceneSession } from './models/filesUploading/uploadFilesSceneSession';
+import { Mutex } from 'async-mutex';
+import { LoggerService } from 'nest-logger';
 
 @Injectable()
 export class UploadFilesSessionStorageService {
   constructor(
     @Inject('UPLOADFILESCENESESSION_MODEL')
     private uploadingInfoModel: Model<UploadFilesSceneSession>,
+    private logger: LoggerService,
   ) {
     this.sessions = [];
   }
@@ -30,15 +33,24 @@ export class UploadFilesSessionStorageService {
 
     return session;
   }
-
+  mutex = new Mutex();
   public async update(data: UploadFilesSceneSession): Promise<boolean> {
-    data.isNew = false;
-    const updated = await data.save();
-    let session = this.sessions.find(e => e?.sessionId === data.sessionId);
-    if (session) {
-      session = data;
+    const release = await this.mutex.acquire();
+    try {
+      data.isNew = false;
+      const updated = await data.save();
+      let session = this.sessions.find(e => e?.sessionId === data.sessionId);
+      if (session) {
+        session = data;
+      }
+      return updated !== undefined;
+    } catch (e) {
+      this.logger.error(e.message);
+    } finally {
+      release();
     }
-    return updated !== undefined;
+
+    return false;
   }
 
   public async delete(sessionId: string): Promise<boolean> {

@@ -2,13 +2,18 @@ import { Inject, Injectable } from '@nestjs/common';
 import { UserUploadingInfo } from '../filesUploading/UserUploadingInfo.model';
 import { Model } from 'mongoose';
 import { UserUploadingInfoDto } from '../filesUploading/userUploadingInfoDto';
+import { Mutex } from 'async-mutex';
+import { LoggerService } from 'nest-logger';
 
 @Injectable()
 export class DbStorageService {
   constructor(
     @Inject('USERUPLOADINGINFO_MODEL')
     private uploadingInfoModel: Model<UserUploadingInfo>,
+    private logger: LoggerService,
   ) {}
+
+  mutex = new Mutex();
 
   public async insert(data: UserUploadingInfoDto): Promise<string> {
     const createdData = new this.uploadingInfoModel(data);
@@ -26,9 +31,16 @@ export class DbStorageService {
   }
 
   public async update(data: UserUploadingInfo): Promise<boolean> {
-    data.isNew = false;
-    const userUploadingInfo = await data.save();
-    return userUploadingInfo !== undefined;
+    const release = await this.mutex.acquire();
+    try {
+      data.isNew = false;
+      const userUploadingInfo = await data.save();
+      return userUploadingInfo !== undefined;
+    } catch (e) {
+      this.logger.error(e.message);
+    } finally {
+      release();
+    }
   }
 
   public async delete(id: string): Promise<boolean> {
