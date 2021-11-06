@@ -222,6 +222,7 @@ export class UploadFilesSceneBuilder {
       let additionalInfo = '';
       if (eq.type === UploadingType.Ssk) {
         let sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
+        let equipmentIndex = 1;
         while (sskEquipment) {
           addedEquipments.push(sskEquipment.id);
           const info = [];
@@ -232,12 +233,12 @@ export class UploadFilesSceneBuilder {
           }
           additionalInfo = info.join(',');
           if (additionalInfo !== '') additionalInfo += '\n';
-          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq);
+          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq, equipmentIndex++);
           sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
         }
       }
       if (eq.type === UploadingType.All) {
-        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq);
+        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq, 1);
       }
     }
     await this.uploadFilesSessionStorageService.update(stepState);
@@ -270,6 +271,8 @@ export class UploadFilesSceneBuilder {
     stepState.uploadingInfo.currentRequestIndex = 0;
     stepState.requestsToSend = [];
     let n = 0;
+    
+    
 
     for (let eq of equipmentForUploading) {
       //if (n > 3) break; //for debugging
@@ -280,15 +283,16 @@ export class UploadFilesSceneBuilder {
       let additionalInfo = '';
       if (eq.type === UploadingType.Ssk) {
         let sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
+        let equipmentIndex = 1;
         while (sskEquipment) {
           addedEquipments.push(sskEquipment.id);
 
-          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq);
+          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq, equipmentIndex++);
           sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
         }
       }
       if (eq.type === UploadingType.All) {
-        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq);
+        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq, 1);
       }
     }
     await this.uploadFilesSessionStorageService.update(stepState);
@@ -300,6 +304,7 @@ export class UploadFilesSceneBuilder {
     message: string,
     state: UploadFilesSceneState,
     equipment: IUploadedEquipment,
+    index: number
   ): void {
     let i = 1;
     for (let exml of equipment.examples) {
@@ -310,7 +315,7 @@ export class UploadFilesSceneBuilder {
         equipmentId,
         equipment.name,
         equipment.code,
-        `${message}${info}${exml.description}`,
+        `${message}${info}${exml.description.replace('№','№' + index)}`,
         exml.url,
         i++,
       );
