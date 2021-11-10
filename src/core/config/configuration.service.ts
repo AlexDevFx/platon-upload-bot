@@ -6,7 +6,7 @@ import { MaintenanceSheet } from '../sheets/config/maintenanceSheet';
 import { MaintenanceUploadingSheet } from '../sheets/config/maintenanceUploadingSheet';
 import { PersonsSheet } from '../sheets/config/personsSheet';
 import { YearMaintenanceUploadingSheet } from '../sheets/config/yearMaintenanceUploadingSheet';
-import {YearMaintenanceSheet} from "../sheets/config/yearMaintenanceSheet";
+import { YearMaintenanceSheet } from '../sheets/config/yearMaintenanceSheet';
 
 @Injectable()
 export class ConfigurationService {
