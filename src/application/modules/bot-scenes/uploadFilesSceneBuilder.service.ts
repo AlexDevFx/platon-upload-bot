@@ -740,9 +740,40 @@ export class UploadFilesSceneBuilder {
     });
 
     bot.on('photo', async ctx => {
-      await ctx.reply(
-        'Фото принимаются только БЕЗ СЖАТИЯ". Чтобы отправить фото правильно, нужно нажать на скрепку справа от поля ввода сообщения, выделить фото и справа вверху экрана нажать на три точки и выбрать "Отправить без сжатия"',
-      );
+        const stepState = await this.getSession(ctx);
+  
+        if (!(stepState?.step === UploadFilesSteps.Uploading || stepState?.step === UploadFilesSteps.Completed) || !ctx.message.photo || ctx.message.photo.length < 1) return;
+        
+        const doc = ctx.message.photo[ctx.message.photo.length - 1];
+        if (doc) {
+          const fileUrl = await ctx.telegram.getFileLink(doc.file_id);
+          const fileName = fileUrl.split('/').pop();
+  
+          if (fileUrl) {
+            // const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
+            await this.sendFileForUploading(
+                stepState.uploadingInfo.currentRequestId,
+                {
+                  url: fileUrl,
+                  name: fileName,
+                  size: doc.file_size,
+                },
+                ctx,
+            );
+          }
+  
+          if (stepState.requestsToSend && stepState.requestsToSend.length > 0) {
+            await this.sendNextRequest(ctx);
+          } else {
+            stepState.step = UploadFilesSteps.Completed;
+  
+            await this.uploadFilesSessionStorageService.update(stepState);
+            await ctx.reply(
+                '<b>Фото приняты, благодарим! Дождитесь проверки всех фото администратором, если какое-то фото будет отклонено администратором, его нужно будет загрузить снова, изменив так, чтобы оно подходило под требования</b>',
+                { parse_mode: 'HTML' },
+            );
+          }
+        }
     });
 
     bot.action(/confUpl:/, async ctx => {
@@ -784,40 +815,11 @@ export class UploadFilesSceneBuilder {
     });
 
     bot.on('document', async ctx => {
-      const stepState = await this.getSession(ctx);
-
-      if (!(stepState?.step === UploadFilesSteps.Uploading || stepState?.step === UploadFilesSteps.Completed)) return;
-
-      const doc = ctx.message.document;
-      if (doc) {
-        const fileUrl = await ctx.telegram.getFileLink(doc.file_id);
-        const fileName = fileUrl.split('/').pop();
-
-        if (fileUrl) {
-          // const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
-          await this.sendFileForUploading(
-            stepState.uploadingInfo.currentRequestId,
-            {
-              url: fileUrl,
-              name: fileName,
-              size: doc.file_size,
-            },
-            ctx,
-          );
-        }
-
-        if (stepState.requestsToSend && stepState.requestsToSend.length > 0) {
-          await this.sendNextRequest(ctx);
-        } else {
-          stepState.step = UploadFilesSteps.Completed;
-
-          await this.uploadFilesSessionStorageService.update(stepState);
-          await ctx.reply(
-            '<b>Фото приняты, благодарим! Дождитесь проверки всех фото администратором, если какое-то фото будет отклонено администратором, его нужно будет загрузить снова, изменив так, чтобы оно подходило под требования</b>',
-            { parse_mode: 'HTML' },
-          );
-        }
-      }
+      await ctx.reply(
+          'Фото принимаются только "С СЖАТИЕМ". Теперь при отправке фото НЕ НУЖНО выбирать опцию "Отправить без сжатия". При отправке с компьютера поставьте галочку "Сжать изображение"',
+      );
+      return;
+      
     });
     return scene;
   }
