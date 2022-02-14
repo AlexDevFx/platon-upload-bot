@@ -100,7 +100,7 @@ export class BotModule {
     this.bot.use(stage.middleware());
 
     this.bot.use(async (ctx, next) => {
-      if (!ctx.chat?.type || ctx.chat.type === 'group' || ctx.chat.type === 'supergroup' || ctx.message?.text?.startsWith('reconfigure')) {
+      if (!ctx.chat?.type || ctx.chat.type === 'group' || ctx.chat.type === 'supergroup' || ctx.message?.text?.startsWith('/reconfigure')) {
         await next();
         return;
       }
