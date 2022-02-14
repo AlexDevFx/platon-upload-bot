@@ -1,8 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { SheetsService } from '../sheets.service';
-import { ConfigurationService } from '../../config/configuration.service';
+import {Injectable} from '@nestjs/common';
 import moment = require('moment');
-import { ColumnParam, CompareType, FilterOptions } from '../filterOptions';
 
 export enum UserRoles {
   Unknown = -1,
@@ -17,8 +14,12 @@ export interface IPerson {
   role: UserRoles;
 }
 
+export interface IStoreConfiguration {
+  reload(): Promise<void>;
+}
+
 @Injectable()
-export abstract class CacheDataStore<T> {
+export abstract class CacheDataStore<T> implements IStoreConfiguration {
   protected data: T[];
   private updated: Date;
   protected updateTimeOut = 3600000;
@@ -33,6 +34,11 @@ export abstract class CacheDataStore<T> {
     }
 
     return this.data;
+  }
+
+  async reload(): Promise<void> {
+    this.data = [];
+    this.data = await this.getData();
   }
 
   protected abstract loadData(): Promise<void>;

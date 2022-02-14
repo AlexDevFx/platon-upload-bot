@@ -21,6 +21,7 @@ import { uploadFilesSceneSessionProvider } from '../../core/dataStorage/models/f
 import { YearUploadingEquipmentStore } from '../../core/sheets/config/yearUploadingEquipmentStore';
 import { UploadFilesSceneBuilder } from './bot-scenes/uploadFilesSceneBuilder.service';
 import { YearSskEquipmentStore } from '../../core/sheets/config/yearSskEquipmentStore';
+import { IStoreConfiguration } from "../../core/sheets/config/cachedDataStore";
 
 @Module({
   imports: [
@@ -75,6 +76,9 @@ export class BotModule {
     private readonly personsStore: PersonsStore,
     private readonly eventEmitter: EventEmitter2,
     private readonly uploadedEquipmentStore: UploadedEquipmentStore,
+    private readonly sskEquipmentStore: SskEquipmentStore,
+    private readonly yearSskEquipmentStore: YearSskEquipmentStore,
+    private readonly yearUploadingEquipmentStore: YearUploadingEquipmentStore
   ) {
     this.init(process.env.BOT_TOKEN).then(async () => {
       this.logger.log('Bot has been started');
@@ -112,6 +116,17 @@ export class BotModule {
 
     this.bot.command('year', async (ctx, next) => {
       await this.uploadFilesSceneBuilder.enterYearScene(ctx);
+    });
+
+    this.bot.command('reconfigure', async (ctx, next) => {
+      await this.logger.log('Configuration reloading started');
+      await this.reloadStore(this.uploadedEquipmentStore);
+      await this.reloadStore(this.sskEquipmentStore);
+      await this.reloadStore(this.yearSskEquipmentStore);
+      await this.reloadStore(this.yearUploadingEquipmentStore);
+      await this.reloadStore(this.personsStore);
+      await ctx.reply('Конфиг обновлен');
+      await this.logger.log('Configuration reloading completed');
     });
 
     /*this.bot.action(/confUpl:/, async (ctx, next) => {
@@ -158,5 +173,13 @@ export class BotModule {
     this.jobsService.init(this.bot);
     const equipmentData = await getDataTask;
     return this.bot.launch();
+  }
+  
+  private async reloadStore(dataStore: IStoreConfiguration): Promise<void> {
+    try{
+      await dataStore.reload();
+    }catch(e){
+      this.logger.error(`Error in config realoading: ${e?.message}`);
+    }
   }
 }
