@@ -70,7 +70,7 @@ export class UploadFilesSceneBuilder {
     const stepState = await this.getSession(ctx);
 
     if (!stepState) {
-      await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
+      await ctx.reply('Данные по загрузке не сохранились. Попробуйте отменить команду (/cancel) и загрузить ещё раз');
       return undefined;
     }
 
@@ -184,7 +184,7 @@ export class UploadFilesSceneBuilder {
     const stepState = await this.getSession(ctx);
 
     if (!stepState) {
-      await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
+      await ctx.reply('Данные по загрузке не сохранились. Попробуйте отменить команду (/cancel) и загрузить ещё раз');
       return undefined;
     }
 
@@ -244,7 +244,7 @@ export class UploadFilesSceneBuilder {
     const stepState = await this.getSession(ctx);
 
     if (!stepState) {
-      await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
+      await ctx.reply('Данные по загрузке не сохранились. Попробуйте отменить команду (/cancel) и загрузить ещё раз');
       return undefined;
     }
 
@@ -375,7 +375,7 @@ export class UploadFilesSceneBuilder {
     const stepState = await this.getSession(ctx);
 
     if (!stepState) {
-      await ctx.reply('Данные по загрузке на сохранились. Попробуйте отменить команду(/cancel) и загрузить ещё раз');
+      await ctx.reply('Данные по загрузке не сохранились. Попробуйте отменить команду (/cancel) и загрузить ещё раз');
       return undefined;
     }
 
