@@ -1,9 +1,10 @@
-import { FileData, RequestedFile, RequestStatus } from '../../filesUploading/userUploadingInfoDto';
+import { RequestedFile, RequestStatus } from '../../filesUploading/userUploadingInfoDto';
 
 export class UploadingFilesInfo {
   files: RequestedFile[];
   maintenanceId: string;
   sskNumber: string;
+  maintenanceDate: string;
   folderUrl: string;
   currentRequestIndex: number;
   requests: RequestFile[];

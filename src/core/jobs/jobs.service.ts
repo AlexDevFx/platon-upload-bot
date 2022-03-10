@@ -21,6 +21,7 @@ interface IStartUploadingParams {
   fromChatId: number;
   engineerPersonId: string;
   sskNumber: string;
+  maintenanceDate: string;
 }
 
 @Injectable()

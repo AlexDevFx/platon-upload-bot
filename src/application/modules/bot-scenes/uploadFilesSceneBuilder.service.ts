@@ -66,38 +66,6 @@ export class UploadFilesSceneBuilder {
     return month % 3 === 0 ? month / 3 : Math.floor(month / 3) + 1;
   }
 
-  private async uploadFile(file: UploadedFile, ctx: TelegrafContext, tryNumber: number = 0): Promise<string> {
-    const stepState = await this.getSession(ctx);
-
-    if (!stepState) {
-      await ctx.reply('Данные по загрузке не сохранились. Попробуйте отменить команду (/cancel) и загрузить ещё раз');
-      return undefined;
-    }
-
-    if (!file) {
-      await ctx.reply('Нет загруженного файла');
-      return undefined;
-    }
-
-    try {
-      const result = await this.createAndShareFolder(stepState.uploadingInfo.sskNumber, ctx);
-      await this.downloadImage(file.url, file.name);
-      const uploadResult = await this.fileStorageService.upload(file.name, file.size, result.fileId, null);
-
-      if (!stepState.uploadingInfo.folderUrl) {
-        stepState.uploadingInfo.folderUrl = result.fileUrl;
-        await this.uploadFilesSessionStorageService.update(stepState);
-      }
-      return uploadResult.fileUrl;
-    } catch (e) {
-      this.logger.error(`File uploading error: ${file.url}, ${file.name}. Try: ${tryNumber}`, e);
-      if (tryNumber < 10) {
-        return await this.uploadFile(file, ctx, tryNumber + 1);
-      }
-    }
-    return undefined;
-  }
-
   private async sendFileForUploading(requestId: string, file: FileData, ctx: TelegrafContext): Promise<boolean> {
     const stepState = await this.getSession(ctx);
 
@@ -149,32 +117,6 @@ export class UploadFilesSceneBuilder {
 
     await ctx.reply('Команда отменена');
     await this.leaveScene(ctx);
-  }
-
-  private async createAndShareFolder(sskNumber: string, ctx: TelegrafContext): Promise<IUploadResult> {
-    const quarterFolderName = `${moment().format('YYYY')}.${this.getQuarter()}`;
-    let result = await this.fileStorageService.getOrCreateFolder(quarterFolderName, null, null);
-    if (!result.success) {
-      await ctx.reply(`Не удалось создать папку ${quarterFolderName}`);
-    }
-
-    result = await this.fileStorageService.getOrCreateFolder('Фото ТО', result.fileId, null);
-    if (!result.success) {
-      await ctx.reply('Не удалось создать папку Фото ТО');
-    }
-
-    result = await this.fileStorageService.getOrCreateFolder(sskNumber, result.fileId, null);
-
-    if (!result.success) {
-      await ctx.reply(`Не удалось создать папку ${sskNumber}`);
-    }
-
-    result = await this.fileStorageService.shareFolderForReading(result.fileId);
-    if (!result.success) {
-      await ctx.reply(`Не удалось получить доступ к папке ${sskNumber}`);
-    }
-
-    return result;
   }
 
   private async createQuadRequestsForFiles(ctx: TelegrafContext): Promise<void> {
@@ -257,7 +199,6 @@ export class UploadFilesSceneBuilder {
     });
 
     const sskEquipments = (await this.yearSskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
-
    
     stepState.uploadingInfo.requests = [];
     stepState.uploadingInfo.files = [];
@@ -352,6 +293,7 @@ export class UploadFilesSceneBuilder {
         fromChatId: ctx.chat.id,
         engineerPersonId: stepState.user.person.id,
         sskNumber: stepState.uploadingInfo.sskNumber,
+        maintenanceDate: stepState.uploadingInfo.maintenanceDate
       });
     }
     if (stepState.uploadType === UploadType.Quad) {
@@ -362,6 +304,7 @@ export class UploadFilesSceneBuilder {
         fromChatId: ctx.chat.id,
         engineerPersonId: stepState.user.person.id,
         sskNumber: stepState.uploadingInfo.sskNumber,
+        maintenanceDate: stepState.uploadingInfo.maintenanceDate
       });
     }
 
@@ -660,9 +603,11 @@ export class UploadFilesSceneBuilder {
         }
 
         let sskNumber = foundRow.values[maintenanceSheet.getColumnIndex(maintenanceSheet.sskNumberColumn)];
+        
         if (sskNumber && sskNumber.length > 0) {
-          stepState.uploadingInfo.sskNumber = sskNumber;
           const dateIndex = maintenanceSheet.getColumnIndex(maintenanceSheet.maintenanceDateColumn);
+          stepState.uploadingInfo.sskNumber = sskNumber;
+          stepState.uploadingInfo.maintenanceDate = foundRow.values[dateIndex];
           await ctx.reply(
             `Вы хотите загрузить фото для ТО для ССК-<b>${sskNumber}</b>.` + ` Дата проведения <b>${foundRow.values[dateIndex]}</b>`,
             Markup.inlineKeyboard([Markup.callbackButton('✅ Да', 'ConfirmId'), Markup.callbackButton('❌ Нет', 'RejectId')]).extra({
