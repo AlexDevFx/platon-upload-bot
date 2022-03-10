@@ -21,7 +21,7 @@ import { uploadFilesSceneSessionProvider } from '../../core/dataStorage/models/f
 import { YearUploadingEquipmentStore } from '../../core/sheets/config/yearUploadingEquipmentStore';
 import { UploadFilesSceneBuilder } from './bot-scenes/uploadFilesSceneBuilder.service';
 import { YearSskEquipmentStore } from '../../core/sheets/config/yearSskEquipmentStore';
-import { IStoreConfiguration } from "../../core/sheets/config/cachedDataStore";
+import { IStoreConfiguration } from '../../core/sheets/config/cachedDataStore';
 
 @Module({
   imports: [
@@ -78,7 +78,7 @@ export class BotModule {
     private readonly uploadedEquipmentStore: UploadedEquipmentStore,
     private readonly sskEquipmentStore: SskEquipmentStore,
     private readonly yearSskEquipmentStore: YearSskEquipmentStore,
-    private readonly yearUploadingEquipmentStore: YearUploadingEquipmentStore
+    private readonly yearUploadingEquipmentStore: YearUploadingEquipmentStore,
   ) {
     this.init(process.env.BOT_TOKEN).then(async () => {
       this.logger.log('Bot has been started');
@@ -174,11 +174,11 @@ export class BotModule {
     const equipmentData = await getDataTask;
     return this.bot.launch();
   }
-  
+
   private async reloadStore(dataStore: IStoreConfiguration): Promise<void> {
-    try{
+    try {
       await dataStore.reload();
-    }catch(e){
+    } catch (e) {
       this.logger.error(`Error in config realoading: ${e?.message}`);
     }
   }

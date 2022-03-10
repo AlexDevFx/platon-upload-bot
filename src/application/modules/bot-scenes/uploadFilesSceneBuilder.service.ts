@@ -199,7 +199,7 @@ export class UploadFilesSceneBuilder {
     });
 
     const sskEquipments = (await this.yearSskEquipmentStore.getData()).filter(e => e.sskNumber === stepState.uploadingInfo.sskNumber);
-   
+
     stepState.uploadingInfo.requests = [];
     stepState.uploadingInfo.files = [];
     stepState.uploadingInfo.currentRequestIndex = 0;
@@ -293,7 +293,7 @@ export class UploadFilesSceneBuilder {
         fromChatId: ctx.chat.id,
         engineerPersonId: stepState.user.person.id,
         sskNumber: stepState.uploadingInfo.sskNumber,
-        maintenanceDate: stepState.uploadingInfo.maintenanceDate
+        maintenanceDate: stepState.uploadingInfo.maintenanceDate,
       });
     }
     if (stepState.uploadType === UploadType.Quad) {
@@ -304,7 +304,7 @@ export class UploadFilesSceneBuilder {
         fromChatId: ctx.chat.id,
         engineerPersonId: stepState.user.person.id,
         sskNumber: stepState.uploadingInfo.sskNumber,
-        maintenanceDate: stepState.uploadingInfo.maintenanceDate
+        maintenanceDate: stepState.uploadingInfo.maintenanceDate,
       });
     }
 
@@ -603,7 +603,7 @@ export class UploadFilesSceneBuilder {
         }
 
         let sskNumber = foundRow.values[maintenanceSheet.getColumnIndex(maintenanceSheet.sskNumberColumn)];
-        
+
         if (sskNumber && sskNumber.length > 0) {
           const dateIndex = maintenanceSheet.getColumnIndex(maintenanceSheet.maintenanceDateColumn);
           stepState.uploadingInfo.sskNumber = sskNumber;
@@ -685,40 +685,45 @@ export class UploadFilesSceneBuilder {
     });
 
     bot.on('photo', async ctx => {
-        const stepState = await this.getSession(ctx);
-  
-        if (!(stepState?.step === UploadFilesSteps.Uploading || stepState?.step === UploadFilesSteps.Completed) || !ctx.message.photo || ctx.message.photo.length < 1) return;
-        
-        const doc = ctx.message.photo[ctx.message.photo.length - 1];
-        if (doc) {
-          const fileUrl = await ctx.telegram.getFileLink(doc.file_id);
-          const fileName = fileUrl.split('/').pop();
-  
-          if (fileUrl) {
-            // const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
-            await this.sendFileForUploading(
-                stepState.uploadingInfo.currentRequestId,
-                {
-                  url: fileUrl,
-                  name: fileName,
-                  size: doc.file_size,
-                },
-                ctx,
-            );
-          }
-  
-          if (stepState.requestsToSend && stepState.requestsToSend.length > 0) {
-            await this.sendNextRequest(ctx);
-          } else {
-            stepState.step = UploadFilesSteps.Completed;
-  
-            await this.uploadFilesSessionStorageService.update(stepState);
-            await ctx.reply(
-                '<b>Фото приняты, благодарим! Дождитесь проверки всех фото администратором, если какое-то фото будет отклонено администратором, его нужно будет загрузить снова, изменив так, чтобы оно подходило под требования</b>',
-                { parse_mode: 'HTML' },
-            );
-          }
+      const stepState = await this.getSession(ctx);
+
+      if (
+        !(stepState?.step === UploadFilesSteps.Uploading || stepState?.step === UploadFilesSteps.Completed) ||
+        !ctx.message.photo ||
+        ctx.message.photo.length < 1
+      )
+        return;
+
+      const doc = ctx.message.photo[ctx.message.photo.length - 1];
+      if (doc) {
+        const fileUrl = await ctx.telegram.getFileLink(doc.file_id);
+        const fileName = fileUrl.split('/').pop();
+
+        if (fileUrl) {
+          // const request = stepState.uploadingInfo.requests.find(e => e.id === stepState.uploadingInfo.currentRequestId);
+          await this.sendFileForUploading(
+            stepState.uploadingInfo.currentRequestId,
+            {
+              url: fileUrl,
+              name: fileName,
+              size: doc.file_size,
+            },
+            ctx,
+          );
         }
+
+        if (stepState.requestsToSend && stepState.requestsToSend.length > 0) {
+          await this.sendNextRequest(ctx);
+        } else {
+          stepState.step = UploadFilesSteps.Completed;
+
+          await this.uploadFilesSessionStorageService.update(stepState);
+          await ctx.reply(
+            '<b>Фото приняты, благодарим! Дождитесь проверки всех фото администратором, если какое-то фото будет отклонено администратором, его нужно будет загрузить снова, изменив так, чтобы оно подходило под требования</b>',
+            { parse_mode: 'HTML' },
+          );
+        }
+      }
     });
 
     bot.action(/confUpl:/, async ctx => {
@@ -761,10 +766,9 @@ export class UploadFilesSceneBuilder {
 
     bot.on('document', async ctx => {
       await ctx.reply(
-          'Фото принимаются только "С СЖАТИЕМ". Теперь при отправке фото НЕ НУЖНО выбирать опцию "Отправить без сжатия". При отправке с компьютера поставьте галочку "Сжать изображение"',
+        'Фото принимаются только "С СЖАТИЕМ". Теперь при отправке фото НЕ НУЖНО выбирать опцию "Отправить без сжатия". При отправке с компьютера поставьте галочку "Сжать изображение"',
       );
       return;
-      
     });
     return scene;
   }
