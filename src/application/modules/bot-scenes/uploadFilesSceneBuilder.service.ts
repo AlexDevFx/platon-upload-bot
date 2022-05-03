@@ -414,7 +414,7 @@ export class UploadFilesSceneBuilder {
       if(sentFile.file && sentFile.file.fileId && sentFile.file.name){
         const path = await ctx.telegram.getFileLink(sentFile.file.fileId);
         if(path){
-          const pathToSave = this.configurationService.appconfig.tempFolder + sentFile.file.name;
+          const pathToSave = this.configurationService.appconfig.tempFolder + uploadingInfo.sskNumber + '_' + request.code + '_' + request.index + '_' + sentFile.file.name;
           if(await this.downloadImage(path, pathToSave) == true) sentFile.file.path = pathToSave;
         } 
       }
