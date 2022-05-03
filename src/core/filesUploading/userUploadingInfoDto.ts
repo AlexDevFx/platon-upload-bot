@@ -29,6 +29,8 @@ export class FileData {
   public url: string;
   public name: string;
   public size: number;
+  public fileId: string;
+  public path: string;
 }
 
 export class RequestedFile {

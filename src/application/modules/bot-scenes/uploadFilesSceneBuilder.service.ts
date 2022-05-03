@@ -7,7 +7,7 @@ import { LoggerService } from 'nest-logger';
 import { FileStorageService, IUploadResult } from '../../../core/sheets/filesStorage/file-storage.service';
 import { SheetsService } from '../../../core/sheets/sheets.service';
 import { ConfigurationService } from '../../../core/config/configuration.service';
-import { RequestFile, UploadedFile, UploadingFilesInfo } from '../../../core/sheets/filesUploading/uploadingFilesInfo';
+import { RequestFile, UploadingFilesInfo } from '../../../core/sheets/filesUploading/uploadingFilesInfo';
 import { ColumnParam, CompareType, FilterOptions } from '../../../core/sheets/filterOptions';
 import { IUploadedEquipment, UploadedEquipmentStore, UploadingType } from '../../../core/sheets/config/uploadedEquipmentStore';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,7 +19,7 @@ import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
 import { UploadFilesSceneState, UploadFilesSteps } from './UploadQuadMaintenanceScene';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
-import { firstValueFrom, take } from 'rxjs';
+import {catchError, firstValueFrom, take} from 'rxjs';
 import { TelegrafContext } from 'telegraf/typings/context';
 import { UploadFilesSessionStorageService } from '../../../core/dataStorage/uploadFilesSessionStorage.service';
 import { UploadFilesSceneSession, UploadType } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
@@ -49,16 +49,33 @@ export class UploadFilesSceneBuilder {
     private readonly yearUploadingEquipmentStore: YearUploadingEquipmentStore,
   ) {}
 
-  private async downloadImage(fileUrl: string, filePathToSave: string): Promise<void> {
-    const writer = fs.createWriteStream(filePathToSave);
-    const source = this.httpService.get(fileUrl, { responseType: 'stream' }).pipe(take(1));
-    const response = await firstValueFrom(source);
-    response.data.pipe(writer);
+  private async downloadImage(fileUrl: string, filePathToSave: string): Promise<boolean> {
+    let result = false;
+    try {
+      const source = this.httpService.get(fileUrl, { responseType: 'stream' }).pipe(
+          take(1),
+          catchError((err, c) => {
+            throw 'Download file method failed:' + err;
+          }),
+      );
+      const resp = await firstValueFrom(source, { defaultValue: undefined });
+      if (resp && resp.status === 200 && resp.data) {
+        return await new Promise<boolean>((res, rej) => {
+          const writer = fs.createWriteStream(filePathToSave);
+          resp.data.pipe(writer);
+          writer.on('finish', () => {
+            res(true);
+          });
+          writer.on('error', rej);
+        });
+      } else {
+        this.logger.error(`Download file method failed: ${resp?.status ?? -1}`);
+      }
+    } catch (e) {
+      this?.logger?.error('Download file method failed', e);
+    }
 
-    return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
+    return result;
   }
 
   private getQuarter(): number {
@@ -82,9 +99,11 @@ export class UploadFilesSceneBuilder {
         request.equipmentName,
         request.code,
         {
+          url: file.url,
           name: file.name,
           size: file.size,
-          url: file.url,
+          fileId: file.fileId,
+          path: file.path
         },
         request.index,
       );
@@ -148,7 +167,7 @@ export class UploadFilesSceneBuilder {
     let n = 0;
 
     for (let eq of equipmentForUploading) {
-      //if (n > 3) break; //for debugging
+      //if (n > 4) break; //for debugging
       if (eq.type === UploadingType.Undefined || eq.examples.length < 1) continue;
 
       n++;
@@ -207,7 +226,7 @@ export class UploadFilesSceneBuilder {
     let n = 0;
 
     for (let eq of equipmentForUploading) {
-      //if (n > 3) break; //for debugging
+      //if (n > 0) break; //for debugging
       if (eq.type === UploadingType.Undefined || eq.examples.length < 1) continue;
       n++;
       //if(n != 3) continue; //for debugging
@@ -392,6 +411,14 @@ export class UploadFilesSceneBuilder {
     if (sentFile) {
       sentFile.status = RequestStatus.Confirmed;
       sentFile.confirmatorId = person.id ?? person.telegramUsername;
+      if(sentFile.file && sentFile.file.fileId && sentFile.file.name){
+        const path = await ctx.telegram.getFileLink(sentFile.file.fileId);
+        if(path){
+          const pathToSave = this.configurationService.appconfig.tempFolder + sentFile.file.name;
+          if(await this.downloadImage(path, pathToSave) == true) sentFile.file.path = pathToSave;
+        } 
+      }
+     
     } else {
       return;
     }
@@ -707,6 +734,8 @@ export class UploadFilesSceneBuilder {
               url: fileUrl,
               name: fileName,
               size: doc.file_size,
+              fileId: doc.file_id,
+              path: ''
             },
             ctx,
           );

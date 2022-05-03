@@ -3,6 +3,7 @@ export interface Appconfig {
   googleDriveFolderId: string;
   db: DbConfig;
   jobs: JobsConfig;
+  tempFolder: string;
 }
 
 export interface JobsConfig {
