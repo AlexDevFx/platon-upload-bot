@@ -106,6 +106,7 @@ export class UploadFilesSceneBuilder {
           path: file.path,
         },
         request.index,
+        request.type
       );
 
       let previousFile = stepState.uploadingInfo.files.find(e => e.id === requestId);

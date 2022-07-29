@@ -42,8 +42,9 @@ export class RequestedFile {
   public file: FileData;
   public confirmatorId: string;
   public index: number;
+  public type: string;
 
-  constructor(id: string, equipmentId: string, equipmentName: string, fieldCode: string, file: FileData, index: number) {
+  constructor(id: string, equipmentId: string, equipmentName: string, fieldCode: string, file: FileData, index: number, type: string) {
     this.id = id;
     this.equipmentId = equipmentId;
     this.equipmentName = equipmentName;
@@ -51,6 +52,7 @@ export class RequestedFile {
     this.file = file;
     this.index = index;
     this.code = fieldCode;
+    this.type = type;
   }
 }
 

@@ -13,6 +13,7 @@ export const UploadFilesSceneSessionSchema = new mongoose.Schema({
       status: Number,
       code: String,
       index: Number,
+      type: String
     },
   ],
   user: {
@@ -44,6 +45,7 @@ export const UploadFilesSceneSessionSchema = new mongoose.Schema({
         },
         confirmatorId: String,
         index: Number,
+        type: String
       },
     ],
     maintenanceId: String,
@@ -61,6 +63,7 @@ export const UploadFilesSceneSessionSchema = new mongoose.Schema({
         photoFile: String,
         status: Number,
         index: Number,
+        type: String
       },
     ],
     currentRequestId: String,
