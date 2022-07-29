@@ -67,10 +67,6 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     return (await this.agenda.now('uploadQuadMaintenanceFiles', params)) !== undefined;
   }
 
-  public async startUploadingFiles(params: IStartUploadingParams): Promise<boolean> {
-    return (await this.agenda.now('startUploadingFiles', params)) !== undefined;
-  }
-
   public async startQuadUploadingFiles(params: IStartUploadingParams): Promise<boolean> {
     return (await this.agenda.now('startQuadUploadingFiles', params)) !== undefined;
   }
