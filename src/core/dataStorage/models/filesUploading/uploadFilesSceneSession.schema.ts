@@ -40,7 +40,7 @@ export const UploadFilesSceneSessionSchema = new mongoose.Schema({
           name: String,
           size: Number,
           fileId: String,
-          path: String
+          path: String,
         },
         confirmatorId: String,
         index: Number,

@@ -19,7 +19,7 @@ import { ISheetUploadRecord } from '../../../core/jobs/isheet-upload.record';
 import { UploadFilesSceneState, UploadFilesSteps } from './UploadQuadMaintenanceScene';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IAdminHandleUploadRequest } from '../../../core/event/adminHandleUploadRequest';
-import {catchError, firstValueFrom, take} from 'rxjs';
+import { catchError, firstValueFrom, take } from 'rxjs';
 import { TelegrafContext } from 'telegraf/typings/context';
 import { UploadFilesSessionStorageService } from '../../../core/dataStorage/uploadFilesSessionStorage.service';
 import { UploadFilesSceneSession, UploadType } from '../../../core/dataStorage/models/filesUploading/uploadFilesSceneSession';
@@ -53,10 +53,10 @@ export class UploadFilesSceneBuilder {
     let result = false;
     try {
       const source = this.httpService.get(fileUrl, { responseType: 'stream' }).pipe(
-          take(1),
-          catchError((err, c) => {
-            throw 'Download file method failed:' + err;
-          }),
+        take(1),
+        catchError((err, c) => {
+          throw 'Download file method failed:' + err;
+        }),
       );
       const resp = await firstValueFrom(source, { defaultValue: undefined });
       if (resp && resp.status === 200 && resp.data) {
@@ -103,7 +103,7 @@ export class UploadFilesSceneBuilder {
           name: file.name,
           size: file.size,
           fileId: file.fileId,
-          path: file.path
+          path: file.path,
         },
         request.index,
       );
@@ -167,7 +167,7 @@ export class UploadFilesSceneBuilder {
     let n = 0;
 
     for (let eq of equipmentForUploading) {
-      //if (n > 4) break; //for debugging
+      //if (n > 3) break; //for debugging
       if (eq.type === UploadingType.Undefined || eq.examples.length < 1) continue;
 
       n++;
@@ -187,12 +187,12 @@ export class UploadFilesSceneBuilder {
           }
           additionalInfo = info.join(',');
           if (additionalInfo !== '') additionalInfo += '\n';
-          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq, equipmentIndex++);
+          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq, equipmentIndex++, '');
           sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
         }
       }
       if (eq.type === UploadingType.All) {
-        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq, 1);
+        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq, 1, '');
       }
     }
     await this.uploadFilesSessionStorageService.update(stepState);
@@ -238,12 +238,12 @@ export class UploadFilesSceneBuilder {
         let equipmentIndex = 1;
         while (sskEquipment) {
           addedEquipments.push(sskEquipment.id);
-          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq, equipmentIndex++);
+          UploadFilesSceneBuilder.addRequestToState(sskEquipment.id, additionalInfo, message, stepState, eq, equipmentIndex++, sskEquipment.type);
           sskEquipment = sskEquipments.find(e => e.name === eq.name && !addedEquipments.find(a => a === e.id));
         }
       }
       if (eq.type === UploadingType.All) {
-        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq, 1);
+        UploadFilesSceneBuilder.addRequestToState(eq.name, additionalInfo, message, stepState, eq, 1, '');
       }
     }
     await this.uploadFilesSessionStorageService.update(stepState);
@@ -256,6 +256,7 @@ export class UploadFilesSceneBuilder {
     state: UploadFilesSceneState,
     equipment: IUploadedEquipment,
     index: number,
+    type: string,
   ): void {
     let i = 1;
     for (let exml of equipment.examples) {
@@ -269,6 +270,7 @@ export class UploadFilesSceneBuilder {
         `${message}${info}${exml.description.replace('№', '№' + index)}`,
         exml.url,
         i++,
+        type,
       );
       state.uploadingInfo.requests.push(requestFile);
       state.requestsToSend.push(requestFile);
@@ -411,14 +413,21 @@ export class UploadFilesSceneBuilder {
     if (sentFile) {
       sentFile.status = RequestStatus.Confirmed;
       sentFile.confirmatorId = person.id ?? person.telegramUsername;
-      if(sentFile.file && sentFile.file.fileId && sentFile.file.name){
+      if (sentFile.file && sentFile.file.fileId && sentFile.file.name) {
         const path = await ctx.telegram.getFileLink(sentFile.file.fileId);
-        if(path){
-          const pathToSave = this.configurationService.appconfig.tempFolder + uploadingInfo.sskNumber + '_' + request.code + '_' + request.index + '_' + sentFile.file.name;
-          if(await this.downloadImage(path, pathToSave) == true) sentFile.file.path = pathToSave;
-        } 
+        if (path) {
+          const pathToSave =
+            this.configurationService.appconfig.tempFolder +
+            uploadingInfo.sskNumber +
+            '_' +
+            request.code +
+            '_' +
+            request.index +
+            '_' +
+            sentFile.file.name;
+          if ((await this.downloadImage(path, pathToSave)) == true) sentFile.file.path = pathToSave;
+        }
       }
-     
     } else {
       return;
     }
@@ -499,6 +508,7 @@ export class UploadFilesSceneBuilder {
       requestToSend.message,
       requestToSend.photoFile,
       requestToSend.index,
+      requestToSend.type,
     );
 
     stepState.requestsToSend.unshift(newFileRequest);
@@ -735,7 +745,7 @@ export class UploadFilesSceneBuilder {
               name: fileName,
               size: doc.file_size,
               fileId: doc.file_id,
-              path: ''
+              path: '',
             },
             ctx,
           );

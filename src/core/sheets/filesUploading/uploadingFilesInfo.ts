@@ -33,8 +33,9 @@ export class RequestFile {
   public photoFile: string;
   public status: RequestStatus;
   public index: number;
+  public type: string;
 
-  constructor(id: string, equipmentId: string, equipmentName: string, code: string, message: string, photoFile: string, index: number) {
+  constructor(id: string, equipmentId: string, equipmentName: string, code: string, message: string, photoFile: string, index: number, type: string) {
     this.id = id;
     this.equipmentId = equipmentId;
     this.code = code;
@@ -43,5 +44,6 @@ export class RequestFile {
     this.photoFile = photoFile;
     this.status = RequestStatus.Unknown;
     this.index = index;
+    this.type = type;
   }
 }

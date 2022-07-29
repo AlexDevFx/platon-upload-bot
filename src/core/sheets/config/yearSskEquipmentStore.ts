@@ -13,6 +13,7 @@ interface ISskEquipment {
   id: string;
   name: string;
   sskNumber: string;
+  type: string;
   additionalInfo: IAdditionalInfo[];
 }
 
@@ -41,6 +42,7 @@ export class YearSskEquipmentStore extends CacheDataStore<ISskEquipment> {
     const equipmentNameIndex = equipmentSheet.getColumnIndex(equipmentSheet.equipmentNameColumn);
     const sskNumberIndex = equipmentSheet.getColumnIndex(equipmentSheet.sskNumberColumn);
     const idIndex = equipmentSheet.getColumnIndex(equipmentSheet.idColumn);
+    const typeIndex = equipmentSheet.getColumnIndex(equipmentSheet.typeColumn);
 
     const additionalColumns = [
       { index: equipmentSheet.getColumnIndex(equipmentSheet.serialNumber1Column), name: 'Серийный №1' },
@@ -66,6 +68,7 @@ export class YearSskEquipmentStore extends CacheDataStore<ISskEquipment> {
           id: r.values[idIndex],
           name: r.values[equipmentNameIndex],
           sskNumber: r.values[sskNumberIndex],
+          type: r.values[typeIndex],
           additionalInfo: info,
         });
       }
