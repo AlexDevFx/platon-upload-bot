@@ -106,7 +106,7 @@ export class UploadFilesSceneBuilder {
           path: file.path,
         },
         request.index,
-        request.type
+        request.equipmentType
       );
 
       let previousFile = stepState.uploadingInfo.files.find(e => e.id === requestId);
@@ -271,7 +271,7 @@ export class UploadFilesSceneBuilder {
         `${message}${info}${exml.description.replace('№', '№' + index)}`,
         exml.url,
         i++,
-        type,
+        type
       );
       state.uploadingInfo.requests.push(requestFile);
       state.requestsToSend.push(requestFile);
@@ -509,7 +509,7 @@ export class UploadFilesSceneBuilder {
       requestToSend.message,
       requestToSend.photoFile,
       requestToSend.index,
-      requestToSend.type,
+      requestToSend.equipmentType,
     );
 
     stepState.requestsToSend.unshift(newFileRequest);
@@ -664,7 +664,7 @@ export class UploadFilesSceneBuilder {
 
     bot.action('ConfirmId', async ctx => {
       try {
-        await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅Да ', 'Confirmed')]]));
+        await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton('✅ Да ', 'ConfirmedUploading')]]));
         const stepState = await this.getSession(ctx);
         stepState.step = UploadFilesSteps.Uploading;
         await this.uploadFilesSessionStorageService.update(stepState);

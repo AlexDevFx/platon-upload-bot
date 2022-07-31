@@ -1,11 +1,3 @@
-import { UploadedFile } from '../sheets/filesUploading/uploadingFilesInfo';
-import exp = require('constants');
-
-export interface IUserUploadingInfo {
-  //files: RequestedFile[];
-  id: string;
-  username: string;
-}
 
 export class UserUploadingInfoDto {
   public files: RequestedFile[];
@@ -13,16 +5,6 @@ export class UserUploadingInfoDto {
   public userId: number;
   public maintenanceId: string;
   public sessionId: string;
-}
-
-export class FileRequestData {
-  public id: string;
-  public file: UploadedFile;
-
-  constructor(id: string, file: UploadedFile) {
-    this.id = id;
-    this.file = file;
-  }
 }
 
 export class FileData {
@@ -42,7 +24,7 @@ export class RequestedFile {
   public file: FileData;
   public confirmatorId: string;
   public index: number;
-  public type: string;
+  public equipmentType: string;
 
   constructor(id: string, equipmentId: string, equipmentName: string, fieldCode: string, file: FileData, index: number, type: string) {
     this.id = id;
@@ -52,7 +34,7 @@ export class RequestedFile {
     this.file = file;
     this.index = index;
     this.code = fieldCode;
-    this.type = type;
+    this.equipmentType = type;
   }
 }
 
