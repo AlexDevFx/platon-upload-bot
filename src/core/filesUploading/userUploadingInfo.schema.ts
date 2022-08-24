@@ -9,6 +9,7 @@ export const UserUploadingSchema = new mongoose.Schema({
       id: String,
       status: Number,
       equipmentType: String,
+      rowNumber: String,
       file: {
         url: String,
         name: String,

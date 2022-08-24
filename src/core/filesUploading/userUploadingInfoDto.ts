@@ -25,8 +25,9 @@ export class RequestedFile {
   public confirmatorId: string;
   public index: number;
   public equipmentType: string;
+  public rowNumber: string;
 
-  constructor(id: string, equipmentId: string, equipmentName: string, fieldCode: string, file: FileData, index: number, type: string) {
+  constructor(id: string, equipmentId: string, equipmentName: string, fieldCode: string, file: FileData, index: number, type: string, rowNumber: string) {
     this.id = id;
     this.equipmentId = equipmentId;
     this.equipmentName = equipmentName;
@@ -35,6 +36,7 @@ export class RequestedFile {
     this.index = index;
     this.code = fieldCode;
     this.equipmentType = type;
+    this.rowNumber = rowNumber;
   }
 }
 

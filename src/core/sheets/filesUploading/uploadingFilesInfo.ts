@@ -22,8 +22,9 @@ export class RequestFile {
   public status: RequestStatus;
   public index: number;
   public equipmentType: string;
+  public rowNumber: string;
 
-  constructor(id: string, equipmentId: string, equipmentName: string, code: string, message: string, photoFile: string, index: number, type: string) {
+  constructor(id: string, equipmentId: string, equipmentName: string, code: string, message: string, photoFile: string, index: number, type: string, rowNumber: string) {
     this.id = id;
     this.equipmentId = equipmentId;
     this.code = code;
@@ -33,5 +34,6 @@ export class RequestFile {
     this.status = RequestStatus.Unknown;
     this.index = index;
     this.equipmentType = type;
+    this.rowNumber = rowNumber;
   }
 }
