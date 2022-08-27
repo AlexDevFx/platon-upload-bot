@@ -118,7 +118,7 @@ export class BotModule {
       await this.uploadFilesSceneBuilder.enterYearScene(ctx);
     });
 
-    this.bot.command('reconfigure', async (ctx, next) => {
+    this.bot.command('refresh', async (ctx, next) => {
       await this.logger.log('Configuration reloading started');
       await this.reloadStore(this.uploadedEquipmentStore);
       await this.reloadStore(this.sskEquipmentStore);
